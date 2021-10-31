@@ -1,0 +1,83 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+type SkewHeap[T any] struct {
+	root *SkewHeapNode[T]
+	size int
+	less func(T, T) bool
+}
+
+func NewSkewHeap[T any](less func(T, T) bool) *SkewHeap[T] {
+	return &SkewHeap[T]{
+		less: less,
+	}
+}
+
+func (h *SkewHeap[T]) Len() int {
+	return h.size
+}
+
+func (h *SkewHeap[T]) Empty() bool {
+	return h.size == 0
+}
+
+func (h *SkewHeap[T]) Push(v T) {
+	h.root = h.root.Push(h.less, v)
+	h.size++
+}
+
+func (h *SkewHeap[T]) Pop() T {
+	var res T
+	res, h.root = h.root.Pop(h.less)
+	return res
+}
+
+func (h *SkewHeap[T]) Merge(x *SkewHeap[T]) *SkewHeap[T] {
+	return &SkewHeap[T]{
+		root: h.root.Merge(h.less, x.root),
+		size: h.size + x.size,
+		less: h.less,
+	}
+}
+
+type SkewHeapNode[T any] struct {
+	value       T
+	left, right *SkewHeapNode[T]
+}
+
+func (nd *SkewHeapNode[T]) Merge(less func(T, T) bool, x *SkewHeapNode[T]) *SkewHeapNode[T] {
+	if x == nil {
+		return nd
+	}
+	if nd == nil {
+		return x
+	}
+
+	if less(x.value, nd.value) {
+		return x.Merge(less, nd)
+	}
+
+	t := nd.right
+	nd.right = nd.left
+	var left *SkewHeapNode[T]
+	if less(t.value, x.value) {
+		left = t.Merge(less, x)
+	} else {
+		left = x.Merge(less, t)
+	}
+	nd.left = left
+	return nd
+}
+
+func (nd *SkewHeapNode[T]) Push(less func(T, T) bool, v T) *SkewHeapNode[T] {
+	return nd.Merge(less, &SkewHeapNode[T]{v, nil, nil})
+}
+
+func (nd *SkewHeapNode[T]) Pop(less func(T, T) bool) (T, *SkewHeapNode[T]) {
+	val := nd.value
+	nnd := nd.left.Merge(less, nd.right)
+	return val, nnd
+}

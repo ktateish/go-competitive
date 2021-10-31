@@ -1,0 +1,141 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type Segtree[S any] struct {
+	n, size int
+	log     uint
+	d       []S
+	op      func(S, S) S
+	e       func() S
+}
+
+func NewSegtree[S any](v []S, op func(S, S) S, e func() S) *Segtree[S] {
+	sg := &Segtree[S]{
+		op: op,
+		e:  e,
+	}
+	sg.n = len(v)
+	sg.log = uint(intl_CeilPow2(sg.n))
+	sg.size = 1 << sg.log
+	sg.d = make([]S, 2*sg.size)
+	for i := range sg.d {
+		sg.d[i] = e()
+	}
+	for i := 0; i < sg.n; i++ {
+		sg.d[sg.size+i] = v[i]
+	}
+	for i := sg.size - 1; i >= 1; i-- {
+		sg.update(i)
+	}
+
+	return sg
+}
+
+func (sg *Segtree[S]) Set(p int, x S) {
+	assert(0 <= p && p < sg.n)
+	p += sg.size
+	sg.d[p] = x
+	for i := uint(1); i <= sg.log; i++ {
+		sg.update(p >> uint(i))
+	}
+}
+
+func (sg *Segtree[S]) Get(p int) S {
+	assert(0 <= p && p < sg.n)
+	return sg.d[p+sg.size]
+}
+
+func (sg *Segtree[S]) Prod(l, r int) S {
+	assert(0 <= l && l <= r && r <= sg.n)
+	sml, smr := sg.e(), sg.e()
+
+	l += sg.size
+	r += sg.size
+
+	for l < r {
+		if 0 < l&1 {
+			sml = sg.op(sml, sg.d[l])
+			l++
+		}
+		if 0 < r&1 {
+			r--
+			smr = sg.op(sg.d[r], smr)
+		}
+		l >>= 1
+		r >>= 1
+	}
+	return sg.op(sml, smr)
+}
+
+func (sg *Segtree[S]) AllProd() S {
+	return sg.d[1]
+}
+
+func (sg *Segtree[S]) MaxRight(l int, f func(S) bool) int {
+	assert(0 <= l && l <= sg.n)
+	assert(f(sg.e()))
+	if l == sg.n {
+		return sg.n
+	}
+	l += sg.size
+	sm := sg.e()
+	for ok := true; ok; ok = ((l & -l) != l) {
+		for l%2 == 0 {
+			l >>= 1
+		}
+		if !f(sg.op(sm, sg.d[l])) {
+			for l < sg.size {
+				l = (2 * l)
+				if f(sg.op(sm, sg.d[l])) {
+					sm = sg.op(sm, sg.d[l])
+					l++
+				}
+			}
+			return l - sg.size
+		}
+		sm = sg.op(sm, sg.d[l])
+		l++
+	}
+	return sg.n
+}
+
+func (sg *Segtree[S]) MinLeft(r int, f func(S) bool) int {
+	assert(0 <= r && r <= sg.n)
+	assert(f(sg.e()))
+	if r == 0 {
+		return 0
+	}
+	r += sg.size
+	sm := sg.e()
+	for ok := true; ok; ok = ((r & -r) != r) {
+		r--
+		for r > 1 && 0 < (r%2) {
+			r >>= 1
+		}
+		if !f(sg.op(sg.d[r], sm)) {
+			for r < sg.size {
+				r = (2*r + 1)
+				if f(sg.op(sg.d[r], sm)) {
+					sm = sg.op(sg.d[r], sm)
+					r--
+				}
+			}
+			return r + 1 - sg.size
+		}
+		sm = sg.op(sg.d[r], sm)
+	}
+	return 0
+}
+
+func (sg *Segtree[S]) update(k int) {
+	sg.d[k] = sg.op(sg.d[2*k], sg.d[2*k+1])
+}

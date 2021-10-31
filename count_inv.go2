@@ -1,0 +1,49 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// Returns the number of paris (i, j) where a[i] > a[j].
+func CountInversion[T any](a []T, less func(T, T) bool) int {
+	if len(a) < 2 {
+		return 0
+	}
+	b := make([]T, len(a))
+	buf := make([]T, len(a))
+	copy(b, a)
+
+	return count_inversion_rec(b, buf, less)
+}
+
+func count_inversion_rec[T any](a, buf []T, less func(T, T) bool) int {
+	if len(a) < 2 {
+		return 0
+	}
+	m := len(a) / 2
+	var res int
+	res += count_inversion_rec(a[:m], buf, less)
+	res += count_inversion_rec(a[m:], buf, less)
+
+	var i, j, k int
+	for i < m && m+j < len(a) {
+		if less(a[m+j], a[i]) {
+			res += m - i
+			buf[k] = a[m+j]
+			k++
+			j++
+		} else {
+			buf[k] = a[i]
+			k++
+			i++
+		}
+	}
+	for ; i < m; i++ {
+		t := len(a) - (m - i)
+		a[i], a[t] = a[t], a[i]
+	}
+	for i := 0; i < k; i++ {
+		a[i] = buf[i]
+	}
+	return res
+}

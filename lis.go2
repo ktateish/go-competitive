@@ -1,0 +1,36 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// LIS returns a slice of computed Longest Increasing Subsequence length for
+// each element of the given slice `a`
+//
+// For example, a = [2, 6, 4, 5, 7, 1, 3] then LIS(a) = [1, 2, 2, 3, 4, 1, 2].
+func LIS[T OrderedNumeric](a []T) []int {
+	n := len(a)
+	res := make([]int, n)
+	var b []T
+	b = append(b, GetMin[T]())
+	for i := range a {
+		v := a[i]
+		ok := -1
+		ng := len(b)
+		for 1 < abs(ok-ng) {
+			m := (ng + ok) / 2
+			if b[m] < v {
+				ok = m
+			} else {
+				ng = m
+			}
+		}
+		if ng == len(b) {
+			b = append(b, v)
+		} else {
+			b[ng] = v
+		}
+		res[i] = ng
+	}
+	return res
+}

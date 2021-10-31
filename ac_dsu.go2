@@ -1,0 +1,113 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+// DSU represents the structure for Disjoint Set aka Union-Find.
+type DSU struct {
+	n            int
+	parentOrSize []int
+}
+
+// NewDSU returns a pointer to DSU for [0, n).
+func NewDSU(n int) *DSU {
+	p := make([]int, n)
+	for i := range p {
+		p[i] = -1
+	}
+	return &DSU{
+		n:            n,
+		parentOrSize: p,
+	}
+}
+
+func (d *DSU) Len() int {
+	return d.n
+}
+
+// Merge merges the two groups, represented by the given elements, to to a single group.
+//
+// It panics when one of the given element are other than 0 <= x < n.  Where the n is a given
+// parameter when the DSU object is created.
+func (d *DSU) Merge(a, b int) int {
+	assert(0 <= a && a < d.n)
+	assert(0 <= b && b < d.n)
+	x, y := d.Leader(a), d.Leader(b)
+	if x == y {
+		return x
+	}
+	if -d.parentOrSize[x] < -d.parentOrSize[y] {
+		x, y = y, x
+	}
+	d.parentOrSize[x] += d.parentOrSize[y]
+	d.parentOrSize[y] = x
+	return x
+}
+
+// Same returns true when the given elements are in the same group, otherwise false.
+//
+// It panics when one of the given element are other than 0 <= x < n.  Where the n is a given
+// parameter when the DSU object is created.
+func (d *DSU) Same(a, b int) bool {
+	assert(0 <= a && a < d.n)
+	assert(0 <= b && b < d.n)
+	return d.Leader(a) == d.Leader(b)
+}
+
+// Leader returns the representative of the group to which the given element belongs.
+//
+// It panics when the given element are other than 0 <= x < n.  Where the n is a given
+// parameter when the DSU object is created.
+func (d *DSU) Leader(a int) int {
+	assert(0 <= a && a < d.n)
+	if d.parentOrSize[a] < 0 {
+		return a
+	}
+	d.parentOrSize[a] = d.Leader(d.parentOrSize[a])
+	return d.parentOrSize[a]
+}
+
+// Size returns the number of members of the group to which the given element belongs.
+//
+// It panics when the given element are other than 0 <= x < n.  Where the n is a given
+// parameter when the DSU object is created.
+func (d *DSU) Size(a int) int {
+	assert(0 <= a && a < d.n)
+	return -d.parentOrSize[d.Leader(a)]
+}
+
+// Group returns the slice of the groups.
+func (d *DSU) Groups() [][]int {
+	leaderBuf := make([]int, d.n)
+	groupsSize := make([]int, d.n)
+	for i := 0; i < d.n; i++ {
+		leaderBuf[i] = d.Leader(i)
+		groupsSize[leaderBuf[i]]++
+	}
+	result := make([][]int, d.n)
+	var ngroups int
+	for i := 0; i < d.n; i++ {
+		sz := groupsSize[i]
+		if 0 < sz {
+			ngroups++
+		}
+		result[i] = make([]int, 0, sz)
+	}
+	for i := 0; i < d.n; i++ {
+		result[leaderBuf[i]] = append(result[leaderBuf[i]], i)
+	}
+	res := make([][]int, 0, ngroups)
+	for i := 0; i < d.n; i++ {
+		if 0 < len(result[i]) {
+			res = append(res, result[i])
+		}
+	}
+	return res
+}

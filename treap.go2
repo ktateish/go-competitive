@@ -1,0 +1,180 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"math/rand"
+)
+
+// snip ------------------------------------------------------------------------
+
+type Treap[K any, V any] struct {
+	root *TreapNode[K, V]
+	size int
+	less func(a, b K) bool
+}
+
+func NewTreap[K any, V any](less func(a, b K) bool) *Treap[K, V] {
+	return &Treap[K, V]{
+		less: less,
+	}
+}
+
+func (t *Treap[K, V]) Len() int {
+	return t.size
+}
+
+func (t *Treap[K, V]) Insert(key K, value V) bool {
+	priority := rand.Uint64()
+	var ok bool
+	t.root, ok = t.root.insert(t.less, priority, key, value)
+	if ok {
+		t.size++
+	}
+	return ok
+}
+
+func (t *Treap[K, V]) Remove(key K) bool {
+	var ok bool
+	t.root, ok = t.root.remove(t.less, key)
+	if ok {
+		t.size--
+	}
+	return ok
+}
+
+func (t *Treap[K, V]) Find(key K) *TreapNode[K, V] {
+	return t.root.find(t.less, key)
+}
+
+// Graphviz returns the graph directives of the Treap in graphviz format
+func (t *Treap[K, V]) Graphviz() string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "digraph hierarchy {\n")
+	fmt.Fprintf(buf, "graph [splines=line];\n")
+	t.root.graphviz(buf)
+	fmt.Fprintf(buf, "}\n")
+	return buf.String()
+}
+
+type TreapNode[K any, V any] struct {
+	key         K
+	value       V
+	priority    uint64
+	left, right *TreapNode[K, V]
+}
+
+func NewTreapNode[K any, V any](priority uint64, key K, value V) *TreapNode[K, V] {
+	return &TreapNode[K, V]{
+		key:      key,
+		value:    value,
+		priority: priority,
+	}
+}
+
+func (nd *TreapNode[K, V]) rotateLeft() *TreapNode[K, V] {
+	r := nd.right
+	nd.right, r.left = r.left, nd
+	return r
+}
+
+func (nd *TreapNode[K, V]) rotateRight() *TreapNode[K, V] {
+	l := nd.left
+	nd.left, l.right = l.right, nd
+	return l
+}
+
+func (nd *TreapNode[K, V]) insert(less func(K, K) bool, priority uint64, key K, value V) (*TreapNode[K, V], bool) {
+	if nd == nil {
+		return NewTreapNode(priority, key, value), true
+	}
+
+	var ok bool
+	if less(nd.key, key) {
+		nd.right, ok = nd.right.insert(less, priority, key, value)
+		if nd.priority < nd.right.priority {
+			return nd.rotateLeft(), ok
+		}
+		return nd, ok
+	}
+	if less(key, nd.key) {
+		nd.left, ok = nd.left.insert(less, priority, key, value)
+		if nd.priority < nd.left.priority {
+			return nd.rotateRight(), ok
+		}
+		return nd, ok
+	}
+	nd.value = value
+	return nd, false
+}
+
+func (nd *TreapNode[K, V]) remove(less func(K, K) bool, key K) (*TreapNode[K, V], bool) {
+	if nd == nil {
+		return nil, false
+	}
+
+	var ok bool
+	if less(nd.key, key) {
+		nd.right, ok = nd.right.remove(less, key)
+		return nd, ok
+	}
+	if less(key, nd.key) {
+		nd.left, ok = nd.left.remove(less, key)
+		return nd, ok
+	}
+
+	if nd.left == nil && nd.right == nil {
+		return nil, true
+	}
+	if nd.left == nil {
+		nd = nd.rotateLeft()
+		nd.left, ok = nd.left.remove(less, key)
+		return nd, ok
+	}
+	if nd.right == nil {
+		nd = nd.rotateRight()
+		nd.right, ok = nd.right.remove(less, key)
+		return nd, ok
+	}
+
+	if nd.left.priority < nd.right.priority {
+		nd = nd.rotateLeft()
+		nd.left, ok = nd.left.remove(less, key)
+		return nd, ok
+	}
+	nd = nd.rotateRight()
+	nd.right, ok = nd.right.remove(less, key)
+	return nd, ok
+}
+
+func (nd *TreapNode[K, V]) find(less func(K, K) bool, key K) *TreapNode[K, V] {
+	if nd == nil {
+		return nil
+	}
+	if less(nd.key, key) {
+		return nd.right.find(less, key)
+	}
+	if less(key, nd.key) {
+		return nd.left.find(less, key)
+	}
+	return nd
+}
+
+func (nd *TreapNode[K, V]) graphviz(w io.Writer) {
+	if nd == nil {
+		return
+	}
+	if nd.left != nil {
+		fmt.Fprintf(w, `"%d/%d" -> "%d/%d"`, nd.key, nd.priority, nd.left.key, nd.left.priority)
+		fmt.Fprintln(w)
+		nd.left.graphviz(w)
+	}
+	if nd.right != nil {
+		fmt.Fprintf(w, `"%d/%d" -> "%d/%d"`, nd.key, nd.priority, nd.right.key, nd.right.priority)
+		fmt.Fprintln(w)
+		nd.right.graphviz(w)
+	}
+}

@@ -1,0 +1,181 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+type Edge[Cost OrderedNumeric] struct {
+	cost     Cost
+	from, to int
+}
+
+func (e Edge[Cost]) From() int {
+	return e.from
+}
+
+func (e Edge[Cost]) To() int {
+	return e.to
+}
+
+func (e Edge[Cost]) Vertex() (int, int) {
+	return e.from, e.to
+}
+
+func (e Edge[Cost]) Cost() Cost {
+	return e.cost
+}
+
+func MakeEdge[Cost OrderedNumeric](cost Cost, u int, vertex ...int) Edge[Cost] {
+	var from, to int
+	if len(vertex) == 0 {
+		from = -1
+		to = u
+	} else {
+		from = u
+		to = vertex[0]
+	}
+	return Edge[Cost]{
+		from: from,
+		to:   to,
+		cost: cost,
+	}
+}
+
+type WeightedSimpleEdge[Cost OrderedNumeric] interface {
+	To() int
+	Cost() Cost
+}
+
+type WeightedEdge[Cost OrderedNumeric] interface {
+	Vertex() (int, int)
+	Cost() Cost
+}
+
+type WeightedArc[Cost OrderedNumeric] interface {
+	From() int
+	To() int
+	Cost() Cost
+}
+
+// Dijkstra
+func Dijkstra[Cost OrderedNumeric, E WeightedSimpleEdge[Cost]](graph [][]E, inf Cost, start int) []Cost {
+	n := len(graph)
+	distance := make([]Cost, n)
+	SliceFill(distance, inf)
+	pq := NewPriorityQueue[Pair[int, Cost]](func(a, b Pair[int, Cost]) bool { return a.Second < b.Second })
+	distance[start] = 0
+	pq.Push(MakePair(start, distance[start]))
+	for !pq.Empty() {
+		c := pq.Pop()
+		v, d := c.First, c.Second
+		if distance[v] < d {
+			continue
+		}
+		distance[v] = d
+		for _, e := range graph[v] {
+			u, nd := e.To(), e.Cost()+distance[v]
+			if distance[u] <= nd {
+				continue
+			}
+			distance[u] = nd
+			pq.Push(MakePair(u, nd))
+		}
+	}
+	return distance
+}
+
+func GetParent[Cost OrderedNumeric, WSE WeightedSimpleEdge[Cost]](graph [][]WSE, distance []Cost) []int {
+	n := len(graph)
+	parent := make([]int, n)
+	SliceFill(parent, -1)
+	for u := range graph {
+		for _, e := range graph[u] {
+			v, c := e.To(), e.Cost()
+			if distance[v]+c == distance[u] {
+				parent[u] = v
+				break
+			}
+		}
+	}
+	return parent
+}
+
+// Bellman-Ford
+func BellmanFord[Cost OrderedNumeric, WSE WeightedSimpleEdge[Cost]](graph [][]WSE, inf Cost, start int) ([]Cost, bool) {
+	n := len(graph)
+	distance := make([]Cost, n)
+	SliceFill(distance, inf)
+	distance[start] = 0
+	for i := range graph {
+		for u := range graph {
+			for _, e := range graph[u] {
+				v, c := e.To(), e.Cost()
+				if distance[u] == inf {
+					continue
+				}
+				nc := distance[u] + c
+				if nc < distance[v] {
+					distance[v] = nc
+					if i == n-1 {
+						return distance, false
+					}
+				}
+			}
+		}
+	}
+
+	return distance, true
+}
+
+// Warshall-Floyd
+func WarshallFloyd[Cost OrderedNumeric](graph [][]Cost, inf Cost) bool {
+	n := len(graph)
+	if len(graph[0]) != n {
+		panic("graph must be represented as an adjacency matrix")
+	}
+	for k := 0; k < n; k++ {
+		for i := 0; i < n; i++ {
+			if graph[i][k] == inf {
+				continue
+			}
+			for j := 0; j < n; j++ {
+				if graph[k][j] == inf {
+					continue
+				}
+				nd := graph[i][k] + graph[k][j]
+				if nd < graph[i][j] {
+					graph[i][j] = nd
+				}
+			}
+		}
+	}
+	for i := range graph {
+		if graph[i][i] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// MST returns edges that represents Minimum Spanning Tree for the given graph
+// using Kruskal algorithm
+func MST[Cost OrderedNumeric, WE WeightedEdge[Cost]](n int, es []WE) []WE {
+	Sort(es, func(a, b WE) bool {
+		if a.Cost() < b.Cost() {
+			return true
+		}
+		return false
+	})
+	uf := NewDSU(n)
+	var res []WE
+	for i := 0; i < len(es) && len(res) < n-1; i++ {
+		e := es[i]
+		u, v := e.Vertex()
+		if uf.Same(u, v) {
+			continue
+		}
+		res = append(res, e)
+		uf.Merge(u, v)
+	}
+	return res
+}

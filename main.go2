@@ -1,0 +1,40 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+const (
+	// big prime
+	P1b7 = 1000000007
+	P1b9 = 1000000009
+	P0b3 = 998244353
+)
+
+var DEBUG bool
+var RANDOM_SEED int64
+
+func Main() {
+	N := readi()
+	K := readi()
+	T := make([][]int, N)
+	for i := range T {
+		_, T[i] = readInts(N)
+	}
+	M := N - 1
+	a := make([]int, M)
+	Iota(a, 1)
+	var ans int
+	for ok := true; ok; ok = NextPermutation(a) {
+		var k int
+		k += T[0][a[0]]
+		k += T[a[M-1]][0]
+		for i := 0; i < M-1; i++ {
+			k += T[a[i]][a[i+1]]
+		}
+		if k == K {
+			ans++
+		}
+	}
+	println(ans)
+}

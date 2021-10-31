@@ -1,0 +1,73 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// Longest Common Subsequence
+func LCS[T comparable](s1, s2 []T) int {
+	n := len(s1)
+	m := len(s2)
+	dp := lcs_dp(s1, s2)
+	return dp[n][m]
+}
+
+// Longest Common Subsequence with Reconstruction
+func LCSR[T comparable](s1, s2 []T) []T {
+	n := len(s1)
+	m := len(s2)
+
+	dp := lcs_dp(s1, s2)
+
+	var res []T
+	i, j := n, m
+	for 0 < i && 0 < j {
+		for 0 < i && dp[i-1][j] == dp[i][j] {
+			i--
+		}
+		if i == 0 {
+			break
+		}
+		for 0 < j && dp[i][j-1] == dp[i][j] {
+			j--
+		}
+		if j == 0 {
+			break
+		}
+		res = append(res, s1[i-1])
+		i--
+		j--
+	}
+
+	for i, j := 0, len(res)-1; i < j; i, j = i+1, j-1 {
+		res[i], res[j] = res[j], res[i]
+	}
+
+	return res
+}
+
+func lcs_dp[T comparable](s1, s2 []T) [][]int {
+	n := len(s1)
+	m := len(s2)
+
+	dp := make([][]int, n+1)
+	for i := range dp {
+		dp[i] = make([]int, m+1)
+	}
+
+	for i := 0; i <= n; i++ {
+		for j := 0; j <= m; j++ {
+			if 0 < i {
+				dp[i][j] = max(dp[i][j], dp[i-1][j])
+			}
+			if 0 < j {
+				dp[i][j] = max(dp[i][j], dp[i][j-1])
+			}
+			if 0 < i && 0 < j && s1[i-1] == s2[j-1] {
+				dp[i][j] = max(dp[i][j], dp[i-1][j-1]+1)
+			}
+		}
+	}
+
+	return dp
+}

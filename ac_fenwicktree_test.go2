@@ -1,0 +1,69 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"testing"
+)
+
+// vim:set ft=go:
+
+func TestFenwickTree(t *testing.T) {
+	N := 5
+	ft := NewFenwickTree[int](N)
+	tests := []struct {
+		title    string
+		input    []int
+		want     [][]int
+		wantsize []int
+	}{
+		{
+			title: "0 2",
+			input: []int{0, 2},
+			want: [][]int{
+				[]int{0, 2, 2, 2, 2, 2},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+			},
+		},
+		{
+			title: "1 3",
+			input: []int{1, 3},
+			want: [][]int{
+				[]int{0, 2, 5, 5, 5, 5},
+				[]int{0, 0, 3, 3, 3, 3},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+			},
+		},
+		{
+			title: "2 3",
+			input: []int{2, 3},
+			want: [][]int{
+				[]int{0, 2, 5, 8, 8, 8},
+				[]int{0, 0, 3, 6, 6, 6},
+				[]int{0, 0, 0, 3, 3, 3},
+				[]int{0, 0, 0, 0, 0, 0},
+				[]int{0, 0, 0, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, ts := range tests {
+		t.Run("FenwickTree.Add:"+ts.title, func(t *testing.T) {
+			ft.Add(ts.input[0], ts.input[1])
+			for i := 0; i < N; i++ {
+				for j := i; j <= N; j++ {
+					want := ts.want[i][j]
+					got := ft.Sum(i, j)
+					if want != got {
+						t.Errorf("ft.Sum(%d, %d) after ft.Add(%d, %d) returns wrong value: want=%v got=%v\n", i, j, ts.input[0], ts.input[1], want, got)
+					}
+				}
+			}
+		})
+	}
+}

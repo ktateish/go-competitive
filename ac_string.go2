@@ -1,0 +1,323 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+func SuffixArrayInt(s []int, upper int) []int {
+	assert(0 <= upper)
+	for _, d := range s {
+		assert(0 <= d && d <= upper)
+	}
+	sa := sa_is(s, upper)
+	return sa
+}
+
+func SuffixArraySlice[T any](s []T, less func(a, b T) bool) []int {
+	n := len(s)
+	idx := make([]int, n)
+	Iota(idx, 0)
+	Sort(idx, func(i, j int) bool { return less(s[i], s[j]) })
+	s2 := make([]int, n)
+	now := 0
+	for i := 0; i < n; i++ {
+		// below means: 0 < i && s[idx[i-1]] != s[idx[i]]
+		if 0 < i && (less(s[idx[i-1]], s[idx[i]]) || less(s[idx[i]], s[idx[i-1]])) {
+			now++
+		}
+		s2[idx[i]] = now
+	}
+	return sa_is(s2, now)
+}
+
+func SuffixArray(s []byte) []int {
+	n := len(s)
+	s2 := make([]int, n)
+	for i := range s {
+		s2[i] = int(s[i])
+	}
+	return sa_is(s2, 255)
+}
+
+//
+// LCP Array
+//
+func LCPArray[T comparable](s []T, sa []int) []int {
+	n := len(s)
+	assert(n >= 1)
+	rnk := make([]int, n)
+	for i := 0; i < n; i++ {
+		rnk[sa[i]] = i
+	}
+	lcp := make([]int, n-1)
+	h := 0
+	for i := 0; i < n; i++ {
+		if h > 0 {
+			h--
+		}
+		if rnk[i] == 0 {
+			continue
+		}
+		j := sa[rnk[i]-1]
+		for ; j+h < n && i+h < n; h++ {
+			if s[j+h] != s[i+h] {
+				break
+			}
+		}
+		lcp[rnk[i]-1] = h
+	}
+	return lcp
+}
+
+//
+// Z Algorithm
+//
+
+func ZAlgorithm[T Ordered](s []T) []int {
+	n := len(s)
+	if n == 0 {
+		return []int{}
+	}
+	z := make([]int, n)
+	z[0] = 0
+	for i, j := 1, 0; i < n; i++ {
+		k := &z[i]
+		if j+z[j] <= i {
+			*k = 0
+		} else {
+			*k = min(j+z[j]-i, z[i-j])
+		}
+		for i+*k < n && s[*k] == s[i+*k] {
+			*k++
+		}
+		if j+z[j] < i+z[i] {
+			j = i
+		}
+	}
+	z[0] = n
+	return z
+}
+
+// internal
+
+func sa_naive(s []int) []int {
+	n := len(s)
+	sa := make([]int, n)
+	Iota(sa, 0)
+	Sort(sa, func(l, r int) bool {
+		if l == r {
+			return false
+		}
+		for l < n && r < n {
+			if s[l] != s[r] {
+				return s[l] < s[r]
+			}
+			l++
+			r++
+		}
+		return l == n
+	})
+	return sa
+}
+
+func sa_doubling(s []int) []int {
+	n := len(s)
+	sa := make([]int, n)
+	rnk := make([]int, n)
+	copy(rnk, s)
+	tmp := make([]int, n)
+	Iota(sa, 0)
+	for k := 1; k < n; k *= 2 {
+		cmp := func(x, y int) bool {
+			if rnk[x] != rnk[y] {
+				return rnk[x] < rnk[y]
+			}
+			rx := -1
+			ry := -1
+			if x+k < n {
+				rx = rnk[x+k]
+			}
+			if y+k < n {
+				ry = rnk[y+k]
+			}
+			return rx < ry
+		}
+		Sort(sa, cmp)
+		tmp[sa[0]] = 0
+		for i := 1; i < n; i++ {
+			tmp[sa[i]] = tmp[sa[i-1]]
+			if cmp(sa[i-1], sa[i]) {
+				tmp[sa[i]] += 1
+			}
+		}
+		tmp, rnk = rnk, tmp
+	}
+	return sa
+}
+
+func sa_is(s []int, upper int) []int {
+	const (
+		THRESHOLD_NAIVE    = 10
+		THRESHOLD_DOUBLING = 40
+	)
+
+	n := len(s)
+	if n == 0 {
+		return []int{}
+	}
+	if n == 1 {
+		return []int{0}
+	}
+	if n == 2 {
+		if s[0] < s[1] {
+			return []int{0, 1}
+		} else {
+			return []int{1, 0}
+		}
+	}
+	if n < THRESHOLD_NAIVE {
+		return sa_naive(s)
+	}
+	if n < THRESHOLD_DOUBLING {
+		return sa_doubling(s)
+	}
+
+	sa := make([]int, n)
+	ls := make([]bool, n)
+	for i := n - 2; i >= 0; i-- {
+		if s[i] == s[i+1] {
+			ls[i] = ls[i+1]
+		} else {
+			ls[i] = s[i] < s[i+1]
+		}
+	}
+	sum_l := make([]int, upper+1)
+	sum_s := make([]int, upper+1)
+	for i := 0; i < n; i++ {
+		if !ls[i] {
+			sum_s[s[i]]++
+		} else {
+			sum_l[s[i]+1]++
+		}
+	}
+	for i := 0; i <= upper; i++ {
+		sum_s[i] += sum_l[i]
+		if i < upper {
+			sum_l[i+1] += sum_s[i]
+		}
+	}
+
+	induce := func(lms []int) {
+		for i := range sa {
+			sa[i] = -1
+		}
+		buf := make([]int, upper+1)
+		copy(buf, sum_s)
+		for _, d := range lms {
+			if d == n {
+				continue
+			}
+			sa[buf[s[d]]] = d
+			buf[s[d]]++
+		}
+		copy(buf, sum_l)
+		sa[buf[s[n-1]]] = n - 1
+		buf[s[n-1]]++
+		for i := 0; i < n; i++ {
+			v := sa[i]
+			if v >= 1 && !ls[v-1] {
+				sa[buf[s[v-1]]] = v - 1
+				buf[s[v-1]]++
+			}
+		}
+		copy(buf, sum_l)
+		for i := n - 1; i >= 0; i-- {
+			v := sa[i]
+			if v >= 1 && ls[v-1] {
+				buf[s[v-1]+1]--
+				sa[buf[s[v-1]+1]] = v - 1
+			}
+		}
+	}
+
+	lms_map := make([]int, n+1)
+	for i := range lms_map {
+		lms_map[i] = -1
+	}
+	m := 0
+	for i := 1; i < n; i++ {
+		if !ls[i-1] && ls[i] {
+			lms_map[i] = m
+			m++
+		}
+	}
+	lms := make([]int, 0, m)
+	for i := 1; i < n; i++ {
+		if !ls[i-1] && ls[i] {
+			lms = append(lms, i)
+		}
+	}
+
+	induce(lms)
+
+	if 0 < m {
+		sorted_lms := make([]int, 0, m)
+		for _, v := range sa {
+			if lms_map[v] != -1 {
+				sorted_lms = append(sorted_lms, v)
+			}
+		}
+		rec_s := make([]int, m)
+		rec_upper := 0
+		rec_s[lms_map[sorted_lms[0]]] = 0
+		for i := 1; i < m; i++ {
+			l, r := sorted_lms[i-1], sorted_lms[i]
+			var end_l, end_r int
+			{
+				if lms_map[l]+1 < m {
+					end_l = lms[lms_map[l]+1]
+				} else {
+					end_l = n
+				}
+				if lms_map[r]+1 < m {
+					end_r = lms[lms_map[r]+1]
+				} else {
+					end_r = n
+				}
+			}
+			same := true
+			if end_l-l != end_r-r {
+				same = false
+			} else {
+				for l < end_l {
+					if s[l] != s[r] {
+						break
+					}
+					l++
+					r++
+				}
+				if l == n || s[l] != s[r] {
+					same = false
+				}
+			}
+			if !same {
+				rec_upper++
+			}
+			rec_s[lms_map[sorted_lms[i]]] = rec_upper
+		}
+
+		rec_sa := sa_is(rec_s, rec_upper)
+
+		for i := 0; i < m; i++ {
+			sorted_lms[i] = lms[rec_sa[i]]
+		}
+		induce(sorted_lms)
+	}
+	return sa
+}

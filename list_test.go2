@@ -1,0 +1,641 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"reflect"
+	"testing"
+)
+
+func TestFront(t *testing.T) {
+	table := []struct {
+		input []int
+		want1 int
+		want2 []int
+	}{
+		{[]int{1}, 1, []int{1}},
+		{[]int{2, 1}, 2, []int{2, 1}},
+		{[]int{3, 2, 1}, 3, []int{3, 2, 1}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input {
+			A.PushBack(v)
+		}
+
+		if want, got := c.want1, A.Front(); want != got {
+			t.Fatalf("Front() returns wrong value: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "Front()", c.want2, A)
+	}
+
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("Front() with empty list unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.Front()
+		_ = A.Begin()
+	}()
+}
+
+func TestBack(t *testing.T) {
+	table := []struct {
+		input []int
+		want1 int
+		want2 []int
+	}{
+		{[]int{1}, 1, []int{1}},
+		{[]int{1, 2}, 2, []int{1, 2}},
+		{[]int{1, 2, 3}, 3, []int{1, 2, 3}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input {
+			A.PushBack(v)
+		}
+
+		if want, got := c.want1, A.Back(); want != got {
+			t.Fatalf("Back() returns wrong value: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "Back()", c.want2, A)
+	}
+
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("Back() with empty list unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.Back()
+		_ = A.Begin()
+	}()
+}
+
+func TestInsertNode(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 int
+		input3 int
+		want   []int
+	}{
+		{[]int{}, 0, 1, []int{1}},
+		{[]int{1}, 0, 2, []int{2, 1}},
+		{[]int{1}, 1, 2, []int{1, 2}},
+		{[]int{1, 2}, 0, 3, []int{3, 1, 2}},
+		{[]int{1, 2}, 1, 3, []int{1, 3, 2}},
+		{[]int{1, 2}, 2, 3, []int{1, 2, 3}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+
+		p := A.Begin()
+		for i := 0; i < c.input2; i++ {
+			p = p.Next()
+		}
+		nd := &ListNode[int]{
+			val: c.input3,
+		}
+		np := A.InsertNode(p, nd)
+		{
+			var want *ListNode[int]
+			if p == nil {
+				want = A.Rbegin()
+			} else {
+				want = p.prev
+			}
+			if got := np; want != got {
+				t.Fatalf("InsertNode() returns wrong value: want=*ListNode{%d} got=*ListNode{%d}", want.Value(), got.Value())
+			}
+		}
+		compareResult(t, "InsertNode()", c.want, A)
+	}
+
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("InsertNode() with invalid node unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.PushBack(1)
+		p := A.Begin()
+		A.InsertNode(p, nil)
+	}()
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("Remove() on invalid position unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.PushBack(1)
+		A.PushBack(2)
+		A.PushBack(3)
+		A.Remove((*ListNode[int])(nil))
+	}()
+}
+
+func TestRemove(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 int
+		want   []int
+	}{
+		{[]int{1}, 0, []int{}},
+		{[]int{1, 2}, 0, []int{2}},
+		{[]int{1, 2}, 1, []int{1}},
+		{[]int{1, 2, 3}, 0, []int{2, 3}},
+		{[]int{1, 2, 3}, 1, []int{1, 3}},
+		{[]int{1, 2, 3}, 2, []int{1, 2}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+
+		p := A.Begin()
+		for i := 0; i < c.input2; i++ {
+			p = p.Next()
+		}
+		if want, got := p.Next(), A.Remove(p); want != got {
+			t.Fatalf("Remove() returns wrong value: want=*ListNode{%d} got=*ListNode{%d}", want.Value(), got.Value())
+		}
+		compareResult(t, "Remove()", c.want, A)
+	}
+
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("Remove() on a empty list unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.PushBack(1)
+		p := A.Begin()
+		A.Remove(p)
+		A.Remove(p)
+	}()
+	func() {
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("Remove() on invalid position unexpectedly succeeded")
+			}
+		}()
+		A := NewList[int]()
+		A.PushBack(1)
+		A.PushBack(2)
+		A.PushBack(3)
+		A.Remove((*ListNode[int])(nil))
+	}()
+}
+
+func TestPushFront(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 int
+		want   []int
+	}{
+		{[]int{}, 1, []int{1}},
+		{[]int{1}, 2, []int{2, 1}},
+		{[]int{2, 1}, 3, []int{3, 2, 1}},
+		{[]int{3, 2, 1}, 4, []int{4, 3, 2, 1}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+
+		A.PushFront(c.input2)
+		compareResult(t, "PushFront()", c.want, A)
+	}
+
+}
+
+func TestPopFront(t *testing.T) {
+	table := []struct {
+		input1 []int
+		want1  int
+		want2  []int
+	}{
+		{[]int{1}, 1, []int{}},
+		{[]int{2, 1}, 2, []int{1}},
+		{[]int{3, 2, 1}, 3, []int{2, 1}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+
+		if want, got := c.want1, A.PopFront(); want != got {
+			t.Fatalf("A.PopFront() returns wrong node: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "PopFront()", c.want2, A)
+	}
+
+	{
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("PopFront() on a empty list unexpectedly succeeded")
+			}
+		}()
+		_ = NewList[int]().PopFront()
+	}
+
+}
+
+func TestPopHead(t *testing.T) {
+	table := []struct {
+		input1 []int
+		want1  int
+		want2  []int
+	}{
+		{[]int{1}, 1, []int{}},
+		{[]int{2, 1}, 2, []int{1}},
+		{[]int{3, 2, 1}, 3, []int{2, 1}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+		nd := A.PopHead()
+
+		if want, got := c.want1, nd.Value(); want != got {
+			t.Fatalf("A.PopHead() returns wrong node: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "PopHead()", c.want2, A)
+	}
+
+	{
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("PopHead() on a empty list unexpectedly succeeded")
+			}
+		}()
+		_ = NewList[int]().PopHead()
+	}
+
+}
+
+func TestPushBack(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 int
+		want   []int
+	}{
+		{[]int{}, 1, []int{1}},
+		{[]int{1}, 2, []int{1, 2}},
+		{[]int{1, 2}, 3, []int{1, 2, 3}},
+		{[]int{1, 2, 3}, 4, []int{1, 2, 3, 4}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for i := range c.input1 {
+			// use PushFront for testing PushBack()
+			j := len(c.input1) - i - 1
+			A.PushFront(c.input1[j])
+		}
+
+		A.PushBack(c.input2)
+		compareResult(t, "PushBack()", c.want, A)
+	}
+
+}
+
+func TestPopBack(t *testing.T) {
+	table := []struct {
+		input1 []int
+		want1  int
+		want2  []int
+	}{
+		{[]int{1}, 1, []int{}},
+		{[]int{1, 2}, 2, []int{1}},
+		{[]int{1, 2, 3}, 3, []int{1, 2}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+
+		if want, got := c.want1, A.PopBack(); want != got {
+			t.Fatalf("A.PopBack() returns wrong node: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "PopBack()", c.want2, A)
+	}
+
+	{
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("PopBack() on a empty list unexpectedly succeeded")
+			}
+		}()
+		_ = NewList[int]().PopBack()
+	}
+
+}
+
+func TestPopTail(t *testing.T) {
+	table := []struct {
+		input1 []int
+		want1  int
+		want2  []int
+	}{
+		{[]int{1}, 1, []int{}},
+		{[]int{1, 2}, 2, []int{1}},
+		{[]int{1, 2, 3}, 3, []int{1, 2}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+		nd := A.PopTail()
+
+		if want, got := c.want1, nd.Value(); want != got {
+			t.Fatalf("PopTail() returns wrong value: want=%d, got=%d", want, got)
+		}
+		compareResult(t, "PopTail()", c.want2, A)
+	}
+
+	{
+		defer func() {
+			if got := recover(); got == nil {
+				t.Fatalf("PopTail() on a empty list unexpectedly succeeded")
+			}
+		}()
+		_ = NewList[int]().PopTail()
+	}
+
+}
+
+func TestSwap(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 []int
+		want1  []int
+		want2  []int
+	}{
+		{[]int{}, []int{}, []int{}, []int{}},
+		{[]int{1}, []int{2}, []int{2}, []int{1}},
+		{[]int{1, 2}, []int{3, 4}, []int{3, 4}, []int{1, 2}},
+		{[]int{1, 2, 3}, []int{}, []int{}, []int{1, 2, 3}},
+		{[]int{}, []int{1, 2, 3}, []int{1, 2, 3}, []int{}},
+		{[]int{1, 2, 3, 4, 5}, []int{6, 7, 8, 9, 10}, []int{6, 7, 8, 9, 10}, []int{1, 2, 3, 4, 5}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+		B := NewList[int]()
+		for _, v := range c.input2 {
+			B.PushBack(v)
+		}
+		A.Swap(B)
+		compareResult(t, "Swap()", c.want1, A)
+		compareResult(t, "Swap()", c.want2, B)
+	}
+
+}
+
+func TestClear(t *testing.T) {
+	table := []struct {
+		input []int
+		want  []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{1}, []int{}},
+		{[]int{1, 2, 3}, []int{}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input {
+			A.PushBack(v)
+		}
+		A.Clear()
+		compareResult(t, "Clear()", c.want, A)
+	}
+
+}
+
+func TestRemoveIf(t *testing.T) {
+	table := []struct {
+		input []int
+		want  []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{1}, []int{1}},
+		{[]int{2}, []int{}},
+		{[]int{1, 3}, []int{1, 3}},
+		{[]int{2, 4}, []int{}},
+		{[]int{1, 2, 3, 4}, []int{1, 3}},
+		{[]int{6, 1, 2, 3, 4}, []int{1, 3}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input {
+			A.PushBack(v)
+		}
+		A.RemoveIf(func(a int) bool {
+			return a%2 == 0
+		})
+		compareResult(t, "RemoveIf", c.want, A)
+	}
+
+}
+func TestUnique(t *testing.T) {
+	table := []struct {
+		input []int
+		want  []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{1}, []int{1}},
+		{[]int{1, 2, 3}, []int{1, 2, 3}},
+		{[]int{1, 1, 2, 3}, []int{1, 2, 3}},
+		{[]int{1, 2, 2, 3}, []int{1, 2, 3}},
+		{[]int{1, 2, 3, 3}, []int{1, 2, 3}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input {
+			A.PushBack(v)
+		}
+		A.Unique(func(a, b int) bool {
+			return a == b
+		})
+		compareResult(t, "Unique()", c.want, A)
+	}
+
+}
+
+func TestMerge(t *testing.T) {
+	table := []struct {
+		input1 []int
+		input2 []int
+		want1  []int
+		want2  []int
+	}{
+		{[]int{}, []int{}, []int{}, []int{}},
+		{[]int{1}, []int{}, []int{1}, []int{}},
+		{[]int{}, []int{1}, []int{1}, []int{}},
+		{[]int{1, 2, 3}, []int{}, []int{1, 2, 3}, []int{}},
+		{[]int{}, []int{1, 2, 3}, []int{1, 2, 3}, []int{}},
+		{[]int{1, 2, 3}, []int{4, 5, 6}, []int{1, 2, 3, 4, 5, 6}, []int{}},
+		{[]int{4, 5, 6}, []int{1, 2, 3}, []int{1, 2, 3, 4, 5, 6}, []int{}},
+		{[]int{1, 3, 5, 7}, []int{2, 4, 6, 8}, []int{1, 2, 3, 4, 5, 6, 7, 8}, []int{}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+		B := NewList[int]()
+		for _, v := range c.input2 {
+			B.PushBack(v)
+		}
+		A.Merge(B, func(a, b int) bool {
+			return a < b
+		})
+		compareResult(t, "Merge()", c.want1, A)
+		compareResult(t, "Merge()", c.want2, B)
+	}
+
+}
+
+func TestString(t *testing.T) {
+	table := []struct {
+		input []int
+		want  string
+	}{
+		{[]int{}, "()"},
+		{[]int{100}, "(100)"},
+		{[]int{1, 2, 3, 4, 5, 6, 7, 8}, "(1 2 3 4 5 6 7 8)"},
+	}
+
+	for _, c := range table {
+		L := NewList[int]()
+		for _, v := range c.input {
+			L.PushBack(v)
+		}
+		if want, got := c.want, L.String(); want != got {
+			t.Fatalf("L.String() returns wrong value: want=%q, got=%q", want, got)
+		}
+	}
+
+}
+
+func TestSort(t *testing.T) {
+	table := []struct {
+		input []int
+		want  []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{100}, []int{100}},
+		{[]int{1, 2, 3, 4, 5, 6, 7, 8}, []int{1, 2, 3, 4, 5, 6, 7, 8}},
+		{[]int{5, 6, 7, 8, 1, 2, 3, 4}, []int{1, 2, 3, 4, 5, 6, 7, 8}},
+		{[]int{-4, 5, 0, -2, 4, 3, -1, 2, -3, 1, -5}, []int{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5}},
+	}
+
+	// Sort
+	for _, c := range table {
+		L := NewList[int]()
+		for _, v := range c.input {
+			L.PushBack(v)
+		}
+		L.Sort(func(a, b int) bool {
+			return a < b
+		})
+
+		compareResult(t, "Sort()", c.want, L)
+	}
+
+}
+
+func TestSplice(t *testing.T) {
+	// Splice
+	table := []struct {
+		input1 []int
+		input2 []int
+		pos    int
+		want1  []int
+		want2  []int
+	}{
+		{[]int{1, 2, 3, 4, 5}, []int{}, 1, []int{1, 2, 3, 4, 5}, []int{}},
+		{[]int{}, []int{6, 7, 8, 9, 10}, 0, []int{6, 7, 8, 9, 10}, []int{}},
+		{[]int{1, 2, 3, 4, 5}, []int{6, 7, 8, 9, 10}, 5, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, []int{}},
+		{[]int{1, 2, 3, 4, 5}, []int{6, 7, 8, 9, 10}, 1, []int{1, 6, 7, 8, 9, 10, 2, 3, 4, 5}, []int{}},
+	}
+
+	for _, c := range table {
+		A := NewList[int]()
+		B := NewList[int]()
+		for _, v := range c.input1 {
+			A.PushBack(v)
+		}
+		for _, v := range c.input2 {
+			B.PushBack(v)
+		}
+		p := A.Begin()
+		for i := 0; i < c.pos; i++ {
+			p = p.Next()
+		}
+		A.Splice(p, B)
+
+		compareResult(t, "Splice()", c.want1, A)
+		compareResult(t, "Splice()", c.want2, B)
+	}
+}
+
+func compareResult[T any](t *testing.T, label string, want []T, A *List[T]) {
+	if w, got := len(want), A.Len(); w != got {
+		t.Fatalf("Len() after %s returns wrong size: want=%d, got=%d", label, w, got)
+	}
+
+	{
+		got := make([]T, 0, A.Len())
+		for i := A.Begin(); i != A.End(); i = i.Next() {
+			got = append(got, i.Value())
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("%s results in wrong state: want=%v, got=%v", label, want, got)
+		}
+	}
+	{
+		got := make([]T, 0, A.Len())
+		for i := A.Rbegin(); i != A.Rend(); i = i.Prev() {
+			got = append(got, i.Value())
+		}
+		w := make([]T, A.Len())
+		copy(w, want)
+		Reverse(w)
+		if !reflect.DeepEqual(w, got) {
+			t.Fatalf("%s results in wrong state (checking the list in reverse order): want=%v, got=%v", label, w, got)
+		}
+	}
+}

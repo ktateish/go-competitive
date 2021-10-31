@@ -1,0 +1,250 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type LazySegtree[S, F any] struct {
+	n, size     int
+	log         uint
+	d           []S
+	lz          []F
+	op          func(S, S) S
+	e           func() S
+	mapping     func(f F, x S) S
+	composition func(f, g F) F
+	id          func() F
+}
+
+func NewLazySegtree[S, F any](v []S, op func(S, S) S, e func() S, mapping func(F, S) S, composition func(F, F) F, id func() F) *LazySegtree[S, F] {
+	sg := &LazySegtree[S, F]{
+		op:          op,
+		e:           e,
+		mapping:     mapping,
+		composition: composition,
+		id:          id,
+	}
+	sg.n = len(v)
+	sg.log = uint(intl_CeilPow2(sg.n))
+	sg.size = 1 << uint(sg.log)
+	sg.d = make([]S, 2*sg.size)
+	for i := range sg.d {
+		sg.d[i] = sg.e()
+	}
+	sg.lz = make([]F, sg.size)
+	for i := range sg.lz {
+		sg.lz[i] = sg.id()
+	}
+	for i := 0; i < sg.n; i++ {
+		sg.d[sg.size+i] = v[i]
+	}
+	for i := sg.size - 1; i >= 1; i-- {
+		sg.update(i)
+	}
+
+	return sg
+}
+
+func (sg *LazySegtree[S, F]) Set(p int, x S) {
+	assert(0 <= p && p < sg.n)
+	p += sg.size
+	for i := sg.log; i >= 1; i-- {
+		sg.push(p >> i)
+	}
+	sg.d[p] = x
+	for i := uint(1); i <= sg.log; i++ {
+		sg.update(p >> i)
+	}
+}
+
+func (sg *LazySegtree[S, F]) Get(p int) S {
+	assert(0 <= p && p < sg.n)
+	p += sg.size
+	for i := sg.log; i >= 1; i-- {
+		sg.push(p >> i)
+	}
+	return sg.d[p]
+}
+
+func (sg *LazySegtree[S, F]) Prod(l, r int) S {
+	assert(0 <= l && l <= r && r <= sg.n)
+	if l == r {
+		return sg.e()
+	}
+
+	l += sg.size
+	r += sg.size
+
+	for i := sg.log; i >= 1; i-- {
+		if ((l >> i) << i) != l {
+			sg.push(l >> i)
+		}
+		if ((r >> i) << i) != r {
+			sg.push(r >> i)
+		}
+	}
+
+	sml, smr := sg.e(), sg.e()
+	for l < r {
+		if 0 < l&1 {
+			sml = sg.op(sml, sg.d[l])
+			l++
+		}
+		if 0 < r&1 {
+			r--
+			smr = sg.op(sg.d[r], smr)
+		}
+		l >>= 1
+		r >>= 1
+	}
+	return sg.op(sml, smr)
+}
+
+func (sg *LazySegtree[S, F]) AllProd() S {
+	return sg.d[1]
+}
+
+func (sg *LazySegtree[S, F]) Apply(p int, f F) {
+	assert(p <= p && p < sg.n)
+	p += sg.size
+	for i := sg.log; i >= 1; i-- {
+		sg.push(p >> i)
+	}
+	sg.d[p] = sg.mapping(f, sg.d[p])
+	for i := uint(1); i <= sg.log; i++ {
+		sg.update(p >> i)
+	}
+}
+
+func (sg *LazySegtree[S, F]) ApplyRange(l, r int, f F) {
+	assert(0 <= l && l <= r && r <= sg.n)
+	if l == r {
+		return
+	}
+
+	l += sg.size
+	r += sg.size
+
+	for i := sg.log; i >= 1; i-- {
+		if ((l >> i) << i) != l {
+			sg.push(l >> i)
+		}
+		if ((r >> i) << i) != r {
+			sg.push((r - 1) >> i)
+		}
+	}
+
+	{
+		l2, r2 := l, r
+		for l < r {
+			if 0 < (l & 1) {
+				sg.allApply(l, f)
+				l++
+			}
+			if 0 < (r & 1) {
+				r--
+				sg.allApply(r, f)
+			}
+			l >>= 1
+			r >>= 1
+		}
+		l = l2
+		r = r2
+	}
+
+	for i := uint(1); i <= sg.log; i++ {
+		if ((l >> i) << i) != l {
+			sg.update(l >> i)
+		}
+		if ((r >> i) << i) != r {
+			sg.update((r - 1) >> i)
+		}
+	}
+}
+
+func (sg *LazySegtree[S, F]) MaxRight(l int, g func(S) bool) int {
+	assert(0 <= l && l <= sg.n)
+	assert(g(sg.e()))
+	if l == sg.n {
+		return sg.n
+	}
+	l += sg.size
+	for i := sg.log; i >= 1; i-- {
+		sg.push(l >> i)
+	}
+	sm := sg.e()
+	for ok := true; ok; ok = ((l & -l) != l) {
+		for l%2 == 0 {
+			l >>= 1
+		}
+		if !g(sg.op(sm, sg.d[l])) {
+			for l < sg.size {
+				sg.push(l)
+				l = (2 * l)
+				if v := sg.op(sm, sg.d[l]); g(v) {
+					sm = v
+					l++
+				}
+			}
+			return l - sg.size
+		}
+		sm = sg.op(sm, sg.d[l])
+		l++
+	}
+	return sg.n
+}
+
+func (sg *LazySegtree[S, F]) MinLeft(r int, g func(S) bool) int {
+	assert(0 <= r && r <= sg.n)
+	assert(g(sg.e()))
+	if r == 0 {
+		return 0
+	}
+	r += sg.size
+	for i := sg.log; i >= 1; i-- {
+		sg.push((r - 1) >> i)
+	}
+	sm := sg.e()
+	for ok := true; ok; ok = ((r & -r) != r) {
+		r--
+		for r > 1 && 0 < (r%2) {
+			r >>= 1
+		}
+		if !g(sg.op(sg.d[r], sm)) {
+			for r < sg.size {
+				sg.push(r)
+				r = (2*r + 1)
+				if v := sg.op(sg.d[r], sm); g(v) {
+					sm = v
+					r--
+				}
+			}
+			return r + 1 - sg.size
+		}
+		sm = sg.op(sg.d[r], sm)
+	}
+	return 0
+}
+
+func (sg *LazySegtree[S, F]) update(k int) {
+	sg.d[k] = sg.op(sg.d[2*k], sg.d[2*k+1])
+}
+
+func (sg *LazySegtree[S, F]) allApply(k int, f F) {
+	sg.d[k] = sg.mapping(f, sg.d[k])
+	if k < sg.size {
+		sg.lz[k] = sg.composition(f, sg.lz[k])
+	}
+}
+
+func (sg *LazySegtree[S, F]) push(k int) {
+	sg.allApply(2*k, sg.lz[k])
+	sg.allApply(2*k+1, sg.lz[k])
+	sg.lz[k] = sg.id()
+}

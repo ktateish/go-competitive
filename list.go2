@@ -1,0 +1,320 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"bytes"
+	"fmt"
+)
+
+// snip ------------------------------------------------------------------------
+
+type ListNode[T any] struct {
+	val        T
+	prev, next *ListNode[T]
+}
+
+func (nd *ListNode[T]) Next() *ListNode[T] {
+	return nd.next
+}
+
+func (nd *ListNode[T]) Prev() *ListNode[T] {
+	return nd.prev
+}
+
+func (nd *ListNode[T]) Value() T {
+	return nd.val
+}
+
+func (nd *ListNode[T]) SetValue(val T) {
+	nd.val = val
+}
+
+func (nd *ListNode[T]) insert(x *ListNode[T]) {
+	prev := nd.prev
+
+	x.prev = prev
+	prev.next = x
+
+	x.next = nd
+	nd.prev = x
+}
+
+func (nd *ListNode[T]) remove() {
+	prev := nd.prev
+	next := nd.next
+
+	prev.next = next
+	next.prev = prev
+
+	nd.next = nd
+	nd.prev = nd
+}
+
+func list_node_new_head_and_tail[T any]() (head, tail *ListNode[T]) {
+	head = &ListNode[T]{}
+	tail = &ListNode[T]{}
+
+	head.prev = head
+	head.next = tail
+
+	tail.prev = head
+	tail.next = tail
+
+	return
+}
+
+type List[T any] struct {
+	size int
+	head *ListNode[T]
+	tail *ListNode[T]
+}
+
+func NewList[T any]() *List[T] {
+	head, tail := list_node_new_head_and_tail[T]()
+	return &List[T]{
+		head: head,
+		tail: tail,
+	}
+}
+
+func (l *List[T]) Len() int {
+	return l.size
+}
+
+func (l *List[T]) Begin() *ListNode[T] {
+	return l.head.next
+}
+
+func (l *List[T]) Rend() *ListNode[T] {
+	return l.head
+}
+
+func (l *List[T]) Rbegin() *ListNode[T] {
+	return l.tail.Prev()
+}
+
+func (l *List[T]) End() *ListNode[T] {
+	return l.tail
+}
+
+func (l *List[T]) Front() T {
+	if l.size == 0 {
+		panic("empty list")
+	}
+	return l.Begin().val
+}
+
+func (l *List[T]) Back() T {
+	if l.size == 0 {
+		panic("empty list")
+	}
+	return l.Rbegin().val
+}
+
+func (l *List[T]) InsertNode(pos *ListNode[T], nd *ListNode[T]) *ListNode[T] {
+	if nd == nil {
+		panic("invalid node")
+	}
+	if pos == nil {
+		panic("invalid position")
+	}
+
+	pos.insert(nd)
+
+	l.size++
+	return nd
+}
+
+func (l *List[T]) Insert(pos *ListNode[T], v T) *ListNode[T] {
+	nd := &ListNode[T]{
+		val: v,
+	}
+	inserted := l.InsertNode(pos, nd)
+	return inserted
+}
+
+func (l *List[T]) Remove(pos *ListNode[T]) *ListNode[T] {
+	if l.size == 0 {
+		panic("empty list")
+	}
+	if pos == nil {
+		panic("invalid position")
+	}
+	next := pos.next
+	pos.remove()
+	l.size--
+	return next
+}
+
+func (l *List[T]) PushFront(v T) {
+	nd := &ListNode[T]{
+		val: v,
+	}
+	l.InsertNode(l.Begin(), nd)
+}
+
+func (l *List[T]) PopFront() T {
+	return l.PopHead().val
+}
+
+func (l *List[T]) PopHead() *ListNode[T] {
+	nd := l.Begin()
+	l.Remove(nd)
+	return nd
+}
+
+func (l *List[T]) PushBack(v T) {
+	nd := &ListNode[T]{
+		val: v,
+	}
+	l.InsertNode(l.End(), nd)
+}
+
+func (l *List[T]) PopBack() T {
+	return l.PopTail().val
+}
+
+func (l *List[T]) PopTail() *ListNode[T] {
+	nd := l.Rbegin()
+	l.Remove(nd)
+	return nd
+}
+
+func (l *List[T]) Swap(r *List[T]) {
+	tmp := NewList[T]()
+	tp := tmp.Begin()
+	tmp.Splice(tp, r)
+
+	rp := r.Begin()
+	r.Splice(rp, l)
+
+	lp := l.Begin()
+	l.Splice(lp, tmp)
+}
+
+func (l *List[T]) Clear() {
+	l.size = 0
+	l.head.next = l.tail
+	l.tail.prev = l.head
+}
+
+func (l *List[T]) RemoveIf(pred func(v T) bool) *List[T] {
+	for i := l.Begin(); i != l.End(); {
+		if pred(i.val) {
+			i = l.Remove(i)
+		} else {
+			i = i.next
+		}
+	}
+	return l
+}
+
+func (l *List[T]) Unique(eql func(v, u T) bool) {
+	if l.size == 0 || l.size == 1 {
+		return
+	}
+
+	for cur, next := l.Begin(), l.Begin().next; next != l.End(); {
+		if eql(cur.val, next.val) {
+			next = l.Remove(next)
+		} else {
+			cur = next
+			next = next.next
+		}
+	}
+	return
+}
+
+func (l *List[T]) Merge(x *List[T], less func(v, u T) bool) {
+	list_node_merge(less, l.Begin(), l.End(), x.Begin(), x.End())
+	l.size += x.size
+	x.Clear()
+}
+
+func list_node_merge[T any](less func(v, u T) bool, cur1, end1, cur2, end2 *ListNode[T]) {
+	pred := func(p1, p2 *ListNode[T]) bool {
+		if p1 == end1 {
+			return false
+		}
+		if p2 == end2 {
+			return true
+		}
+		return less(p1.val, p2.val)
+	}
+	for !(cur1 == end1 && cur2 == end2) {
+		if pred(cur1, cur2) {
+			cur1 = cur1.next
+		} else {
+			next := cur2.next
+			cur1.insert(cur2)
+			cur2 = next
+		}
+	}
+}
+
+func (l *List[T]) String() string {
+	buf := new(bytes.Buffer)
+	sp := ""
+	fmt.Fprintf(buf, "(")
+	for i := l.Begin(); i != l.End(); i = i.next {
+		fmt.Fprintf(buf, "%s%v", sp, i.val)
+		sp = " "
+	}
+	fmt.Fprintf(buf, ")")
+	return buf.String()
+}
+
+func (l *List[T]) Sort(less func(v, u T) bool) *List[T] {
+	if l.size <= 1 {
+		return l
+	}
+
+	q := NewQueue[Pair[*ListNode[T], *ListNode[T]]]()
+	for i := l.Begin(); i != l.End(); {
+		j := i
+		i = i.next
+		j.remove()
+		head, tail := list_node_new_head_and_tail[T]()
+		tail.insert(j)
+		q.Push(MakePair(head, tail))
+	}
+
+	for q.Len() != 1 {
+		p1 := q.Pop()
+		p2 := q.Pop()
+		list_node_merge(less, p1.First.next, p1.Second, p2.First.next, p2.Second)
+		q.Push(p1)
+	}
+
+	p := q.Pop()
+	nh := p.First.next
+	nt := p.Second.prev
+	l.head.next = nh
+	nh.prev = l.head
+	l.tail.prev = nt
+	nt.next = l.tail
+	return l
+}
+
+func (l *List[T]) Splice(pos *ListNode[T], x *List[T]) *List[T] {
+	if x.size == 0 {
+		return l
+	}
+
+	prev := pos.prev
+	next := pos
+
+	first := x.Begin()
+	last := x.Rbegin()
+
+	first.prev = prev
+	prev.next = first
+
+	last.next = next
+	next.prev = last
+
+	l.size += x.size
+	x.Clear()
+	return l
+}

@@ -1,0 +1,70 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+func HeapPush[T any](less func(T, T) bool, a []T, v T) []T {
+	a = append(a, v)
+	n := len(a) - 1
+	// parent = (current - 1) / 2
+	for i, p := n, (n-1)/2; 0 != i && !less(a[p], a[i]); i, p = p, (i-1)/2 {
+		a[i], a[p] = a[p], a[i]
+	}
+	return a
+}
+
+func HeapPop[T any](less func(T, T) bool, a []T) (T, []T) {
+	n := len(a) - 1
+	a[0], a[n] = a[n], a[0]
+	res := a[n]
+	a = a[:n]
+	p := 0
+	for {
+		l := p*2 + 1 // left child
+		r := p*2 + 2 // right child
+
+		if n <= l {
+			// no children
+			break
+		}
+
+		if n <= r {
+			// p has l only
+			if less(a[p], a[l]) {
+				break
+			}
+			a[p], a[l] = a[l], a[p]
+			p = l
+			continue
+		}
+
+		// p has l and r
+		if less(a[p], a[l]) && less(a[p], a[r]) {
+			break
+		}
+
+		if less(a[p], a[l]) {
+			a[p], a[r] = a[r], a[p]
+			p = r
+			continue
+		}
+
+		if less(a[p], a[r]) {
+			a[p], a[l] = a[l], a[p]
+			p = l
+			continue
+		}
+
+		// both l and r are prior to p
+		if less(a[l], a[r]) {
+			a[p], a[l] = a[l], a[p]
+			p = l
+			continue
+		}
+		a[p], a[r] = a[r], a[p]
+		p = r
+	}
+
+	return res, a
+}

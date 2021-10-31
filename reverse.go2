@@ -1,0 +1,75 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// IReverse reverses the given slice s in place.
+func Reverse[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+// AReverse returns a copy of s but reversed.
+func AReverse[T any](s []T) []T {
+	res := make([]T, len(s))
+	copy(res, s)
+	Reverse(res)
+	return res
+}
+
+// Rotate roltates left by n elemments. In other words, it removes
+// leading n elements from s and appends them to the right of s.
+func Rotate[T any](s []T, n int) {
+	RotateLeft(s, n)
+}
+
+// RotateLeft roltates left by n elemments. In other words, it removes
+// leading n elements from s and appends them to the right of s.
+func RotateLeft[T any](s []T, n int) {
+	if len(s) == 0 {
+		return
+	}
+	n %= len(s)
+	if n < 0 {
+		n += len(s)
+	}
+
+	Reverse(s[0:n])
+	Reverse(s[n:len(s)])
+	Reverse(s)
+}
+
+// RotateRight roltates right by n elemments in place. In other words, it removes
+// trailing n elements from s and inserts them to the head of the rest of s.
+func RotateRight[T any](s []T, n int) {
+	if len(s) == 0 {
+		return
+	}
+	Rotate(s, len(s)-n%len(s))
+}
+
+// ARotate returns a copy of s roltated left by n elemments.
+func ARotate[T any](s []T, n int) []T {
+	return ARotateLeft(s, n)
+}
+
+// ARotate returns a copy of s roltated left by n elemments.
+func ARotateLeft[T any](s []T, n int) []T {
+	length := len(s)
+	res := make([]T, length)
+
+	for i := 0; i < length; i++ {
+		res[i] = s[(i+n)%length]
+	}
+	return res
+}
+
+// ARotate returns a copy of s roltated right by n elemments.
+func ARotateRight[T any](s []T, n int) []T {
+	if len(s) == 0 {
+		return make([]T, 0)
+	}
+	return ARotateLeft(s, len(s)-n%len(s))
+}

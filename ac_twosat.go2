@@ -1,0 +1,54 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type TwoSAT struct {
+	n      int
+	answer []bool
+	scc    *scc_graph
+}
+
+func NewTwoSAT(n int) *TwoSAT {
+	return &TwoSAT{
+		n:      n,
+		answer: make([]bool, n),
+		scc:    new_scc_graph(2 * n),
+	}
+}
+
+func (ts *TwoSAT) AddClause(i int, f bool, j int, g bool) {
+	assert(0 <= i && i < ts.n)
+	assert(0 <= j && j < ts.n)
+	var fv, gv int
+	if !f {
+		fv = 1
+	}
+	if g {
+		gv = 1
+	}
+	ts.scc.AddEdge(2*i+fv, 2*j+gv)
+	ts.scc.AddEdge(2*j+(1-gv), 2*i+(1-fv))
+}
+
+func (ts *TwoSAT) Satisfiable() bool {
+	_, id := ts.scc.SCCIDs()
+	for i := 0; i < ts.n; i++ {
+		if id[2*i] == id[2*i+1] {
+			return false
+		}
+		ts.answer[i] = id[2*i] < id[2*i+1]
+	}
+	return true
+}
+
+func (ts *TwoSAT) Answer() []bool {
+	return ts.answer
+}

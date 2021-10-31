@@ -1,0 +1,224 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// Deque represetns Double Ended Queue.
+type Deque[T any] struct {
+	a    []T
+	capa int
+	size int
+	l, r int
+}
+
+// NewDeque returns new pointer to a initialized Deque object.
+func NewDeque[T any]() *Deque[T] {
+	initial := 4
+	dq := &Deque[T]{}
+	dq.a = make([]T, initial)
+	dq.capa = initial - 1
+	dq.size = 0
+	dq.l = dq.capa
+	dq.r = 0
+	return dq
+}
+
+func (dq *Deque[T]) Begin() DequeIterator[T] {
+	return DequeIterator[T]{
+		deque: dq,
+		i:     0,
+	}
+}
+
+func (dq *Deque[T]) End() DequeIterator[T] {
+	return DequeIterator[T]{
+		deque: dq,
+		i:     dq.size,
+	}
+}
+
+func (dq *Deque[T]) Rbegin() DequeReverseIterator[T] {
+	return DequeReverseIterator[T]{
+		deque: dq,
+		i:     dq.size - 1,
+	}
+}
+
+func (dq *Deque[T]) Rend() DequeReverseIterator[T] {
+	return DequeReverseIterator[T]{
+		deque: dq,
+		i:     -1,
+	}
+}
+
+// Len() returns the number of enqued element.
+func (dq *Deque[T]) Len() int {
+	return dq.size
+}
+
+// Returns true if dq is empty, otherwise false,
+func (dq *Deque[T]) Empty() bool {
+	return dq.size == 0
+}
+
+// Cap() returns the capacity of the undelying slice.
+func (dq *Deque[T]) Cap() int {
+	return dq.capa
+}
+
+// Get(p) returns the i-th element (i = 0, 1, ... , Len()-1).
+func (dq *Deque[T]) Get(p int) T {
+	if dq.size <= p {
+		panic("Deque: out of range")
+	}
+	return dq.a[(dq.l+p+1)%len(dq.a)]
+}
+
+// Set(p, v) assignes a value v to the p-th element.
+func (dq *Deque[T]) Set(p int, v T) {
+	if dq.size <= p {
+		panic("Deque: out of range")
+	}
+	dq.a[(dq.l+p+1)%len(dq.a)] = v
+}
+
+// Front() returns the first element
+func (dq *Deque[T]) Front() T {
+	if dq.size == 0 {
+		panic("Deque: out of range")
+	}
+	return dq.a[(dq.l+1)%len(dq.a)]
+}
+
+// Back() returns the element at position 0
+func (dq *Deque[T]) Back() T {
+	if dq.size == 0 {
+		panic("Deque: out of range")
+	}
+	return dq.a[(dq.r+len(dq.a)-1)%len(dq.a)]
+}
+
+// PushBack() appends v as the last element
+func (dq *Deque[T]) PushBack(v T) {
+	if dq.size == dq.capa {
+		dq.expand()
+	}
+	dq.size++
+	dq.a[dq.r] = v
+	dq.r = (dq.r + 1) % len(dq.a)
+}
+
+// PUshFront() appends v as the first element
+func (dq *Deque[T]) PushFront(v T) {
+	if dq.size == dq.capa {
+		dq.expand()
+	}
+	dq.size++
+	dq.a[dq.l] = v
+	dq.l = (dq.l + len(dq.a) - 1) % len(dq.a)
+}
+
+// PopBack() deletes the last element and returns it
+func (dq *Deque[T]) PopBack() T {
+	if dq.size == 0 {
+		panic("pop from 0 length deque")
+	}
+	dq.size--
+	dq.r = (dq.r + len(dq.a) - 1) % len(dq.a)
+	return dq.a[dq.r]
+}
+
+// PopFront() deletes the first element and returns it
+func (dq *Deque[T]) PopFront() T {
+	if dq.size == 0 {
+		panic("pop from 0 length deque")
+	}
+	dq.size--
+	dq.l = (dq.l + 1) % len(dq.a)
+	return dq.a[dq.l]
+}
+
+func (dq *Deque[T]) expandTo(newsize int) {
+	nsz := newsize + 1
+	na := make([]T, nsz)
+	for i, p := 0, dq.Begin(); p != dq.End(); i, p = i+1, p.Next() {
+		na[i] = p.Get()
+	}
+	dq.a = na
+	dq.capa = nsz - 1
+	dq.l = dq.capa
+	dq.r = dq.size
+}
+
+func (dq *Deque[T]) expand() {
+	osz := (dq.capa + 1)
+	nsz := osz + max(osz, 4096)
+	dq.expandTo(nsz - 1)
+}
+
+type DequeIterator[T any] struct {
+	deque *Deque[T]
+	i     int
+}
+
+func (it DequeIterator[T]) Get() T {
+	return it.deque.Get(it.i)
+}
+
+func (it DequeIterator[T]) Set(x T) {
+	it.deque.Set(it.i, x)
+}
+
+func (it DequeIterator[T]) Next() DequeIterator[T] {
+	next := it
+	next.i++
+	return next
+}
+
+func (it DequeIterator[T]) Prev() DequeIterator[T] {
+	prev := it
+	prev.i--
+	return prev
+}
+
+func (it DequeIterator[T]) FastForward(n int) DequeIterator[T] {
+	next := it
+	next.i += n
+	return next
+}
+
+func (it DequeIterator[T]) Rewind(n int) DequeIterator[T] {
+	prev := it
+	prev.i -= n
+	return prev
+}
+
+type DequeReverseIterator[T any] struct {
+	deque *Deque[T]
+	i     int
+}
+
+func (it DequeReverseIterator[T]) Next() DequeReverseIterator[T] {
+	next := it
+	next.i--
+	return next
+}
+
+func (it DequeReverseIterator[T]) Prev() DequeReverseIterator[T] {
+	prev := it
+	prev.i++
+	return prev
+}
+
+func (it DequeReverseIterator[T]) FastForward(n int) DequeReverseIterator[T] {
+	next := it
+	next.i -= n
+	return next
+}
+
+func (it DequeReverseIterator[T]) Rewind(n int) DequeReverseIterator[T] {
+	prev := it
+	prev.i += n
+	return prev
+}

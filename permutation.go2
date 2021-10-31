@@ -1,0 +1,81 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+// Modify the slice to the next pattern of its permutations in lexicographic order.
+// It returns true if it has next permutation.
+// Otherwise, the slice is the last pattern of permutations, it returns false.
+//
+// Example:
+//
+//   sort.Ints(a)
+//   for ok := true; ok ; ok = NextPermutation(a) {
+//       fmt.Println(a)
+//   }
+//
+func NextPermutation[T Ordered](a []T) bool {
+	return Permutation(a, Less[T])
+}
+
+// Modify the slice to the previous pattern of its permutations in lexicographic order.
+func PrevPermutation[T Ordered](a []T) bool {
+	return Permutation(a, More[T])
+}
+
+// Narayana Pandita's algorithm whitch generates lexicographic permutations
+func Permutation[T any](a []T, less func(x, y T) bool) bool {
+	i := len(a) - 2
+	// Find the right most incresing elements a[i] and a[i+1]
+	for 0 <= i && !less(a[i], a[i+1]) {
+		i--
+	}
+	if i == -1 {
+		return false
+	}
+
+	j := i + 1
+	// Find the smallest element that is greater than a[i] in a[i+1:]
+	for k := j + 1; k < len(a); k++ {
+		// a[i] < a[k] && a[k] <= a[j]
+		if less(a[i], a[k]) && !less(a[j], a[k]) {
+			j = k
+		}
+	}
+
+	a[i], a[j] = a[j], a[i]
+
+	Reverse(a[i+1:])
+
+	return true
+}
+
+// Heap's algorithm which generates non-lexicographic permutations.
+// It less swaps elements than Narayana Pandita's algorithm.
+func DoPermutationHeap(a []int, fn func([]int)) {
+	n := len(a)
+	c := make([]int, n)
+	i := 0
+	swap := func(i, j int) {
+		a[i], a[j] = a[j], a[i]
+	}
+
+	fn(a)
+
+	for i < n {
+		if c[i] < i {
+			if i%2 == 0 {
+				swap(0, i)
+			} else {
+				swap(c[i], i)
+			}
+			fn(a)
+			c[i]++
+			i = 0
+		} else {
+			c[i] = 0
+			i++
+		}
+	}
+}

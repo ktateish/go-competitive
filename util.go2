@@ -1,0 +1,104 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"encoding/binary"
+	"fmt"
+	"os"
+	"runtime"
+)
+
+// snip ------------------------------------------------------------------------
+
+func assert(exp bool) {
+	if exp {
+		return
+	}
+
+	pc, file, line, ok := runtime.Caller(1)
+	if !ok {
+		panic("ASSERT!: unknown position")
+	}
+	msg := fmt.Sprintf("ASSERT!: @0x%x %s[%d]", pc, file, line)
+	panic(msg)
+}
+
+// Less is a generic `less` function for Ordered types
+func Less[T Ordered](a, b T) bool {
+	return a < b
+}
+
+// More is a generic `more` function for Ordered types
+func More[T Ordered](a, b T) bool {
+	return a > b
+}
+
+// CompareFunc returns a function func(a, b T) int that returns negative value
+// if less(a, b) is true, returns positive value if less(b, a) is true, and
+// otherwise returns zero.
+func CompareFunc[T any](less func(T, T) bool) func(T, T) int {
+	return func(a, b T) int {
+		if less(a, b) {
+			return -1
+		} else if less(b, a) {
+			return 1
+		} else {
+			return 0
+		}
+	}
+}
+
+// returns lesser value from given two values
+func min[T Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Returns greater value from given two values
+func max[T Ordered](a, b T) T {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+// Returns absolute value of the given value
+func abs[T OrderedNumeric](a T) T {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+// egcd(a, b) returns d, x, y where:
+//   d is GCD(a,b)
+//   x, y are  integers that satisfy ax + by = d
+func egcd[T Integer](a, b T) (T, T, T) {
+	if b == 0 {
+		return a, 1, 0
+	}
+	d, x, y := egcd(b, a%b)
+	return d, y, x - a/b*y
+}
+
+// Returns gcd, gratest common diviser, of the given two values
+func gcd[T Integer](a, b T) T {
+	d, _, _ := egcd(a, b)
+	return d
+}
+
+func GetRandomSeed() int64 {
+	urand, err := os.Open("/dev/urandom")
+	if err != nil {
+		panic("open: /dev/urandom: " + err.Error())
+	}
+	buf := make([]byte, 8)
+	_, err = urand.Read(buf)
+	if err != nil {
+		panic("read: /dev/urandom: " + err.Error())
+	}
+	return int64(binary.LittleEndian.Uint64(buf))
+}

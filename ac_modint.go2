@@ -1,0 +1,112 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+var modint_bt intl_Barrett
+
+func init() {
+	modint_bt = intl_MakeBarrett(998244353)
+}
+
+func modint_umod() uint32 {
+	return modint_bt.Umod()
+}
+
+func ModIntMod() int {
+	return int(modint_bt.Umod())
+}
+
+func modint_mod() int {
+	return int(modint_bt.Umod())
+}
+
+func ModIntSetMod(m int) {
+	assert(1 <= m)
+	modint_bt = intl_MakeBarrett(uint32(m))
+}
+
+func ModIntRaw(v int) ModInt {
+	return ModInt(v)
+}
+
+type ModInt uint32
+
+func MakeModInt[T Integer](v T) ModInt {
+	var x int64 = int64(v) % int64(modint_mod())
+	if x < 0 {
+		x += int64(modint_mod())
+	}
+	return ModInt(x)
+}
+
+func (v ModInt) Mod() int {
+	return modint_mod()
+}
+
+func (v ModInt) umod() ModInt {
+	return ModInt(modint_umod())
+}
+
+func (v ModInt) mod() int {
+	return modint_mod()
+}
+
+func (v ModInt) Val() int {
+	return int(v)
+}
+
+func (v ModInt) Negate() ModInt {
+	return v.umod() - v
+}
+
+func (v *ModInt) Inc() {
+	*v = (*v + 1) % v.umod()
+}
+
+func (v *ModInt) Dec() {
+	*v = (*v - 1 + v.umod()) % v.umod()
+}
+
+func (v ModInt) Add(x ModInt) ModInt {
+	return (v + x) % v.umod()
+}
+
+func (v ModInt) Sub(x ModInt) ModInt {
+	return (v + v.umod() - x) % v.umod()
+}
+
+func (v ModInt) Mul(x ModInt) ModInt {
+	return (v * x) % v.umod()
+}
+
+func (v ModInt) Div(x ModInt) ModInt {
+	return (v * x.Inv()) % v.umod()
+}
+
+func (v ModInt) Pow(n int) ModInt {
+	assert(0 <= n)
+	x := int(v)
+	r := int(1)
+	for 0 < n {
+		if n&1 == 1 {
+			r = r * x % modint_mod()
+		}
+		x = x * x % modint_mod()
+		n >>= 1
+	}
+	return ModInt(r)
+}
+
+func (v ModInt) Inv() ModInt {
+	g, x := intl_InvGCD(int64(v), int64(v.mod()))
+	assert(g == 1)
+	return ModInt(x)
+}

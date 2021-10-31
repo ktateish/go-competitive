@@ -1,0 +1,643 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+)
+
+// snip ------------------------------------------------------------------------
+
+// LLRB
+//
+//   This is Go implementation of LLRB Tree. Some parts of code are
+//   based on the paper "Left-leaning Red-Black Trees" by Robert Sedgewick.
+//
+
+// LLRB represents LLRB Binary Search Tree
+type LLRB[K, V any] struct {
+	root      *LLRBNode[K, V]
+	end_node  *LLRBNode[K, V]
+	rend_node *LLRBNode[K, V]
+	size      int
+	less      func(a, b K) bool
+	debug     bool
+}
+
+// NewLLRB returns the pointer a LLRB object
+func NewLLRB[K, V any](less func(a, b K) bool) *LLRB[K, V] {
+	t := &LLRB[K, V]{
+		root:      nil,
+		end_node:  &LLRBNode[K, V]{},
+		rend_node: &LLRBNode[K, V]{},
+		size:      0,
+		less:      less,
+		debug:     false,
+	}
+	return t
+}
+
+// Len returns the size of the LLRB
+func (t *LLRB[K, V]) Len() int {
+	return t.size
+}
+
+// Insert inserts the val on the key
+func (t *LLRB[K, V]) Insert(key K, val V) bool {
+	var ok bool
+	t.root, ok = t.root.insert(t.less, key, val)
+	t.root.parent = nil
+	t.root.color = LLRB_BLACK
+	if ok {
+		t.size++
+	}
+	return ok
+}
+
+// Remove removes the value on the key
+func (t *LLRB[K, V]) Remove(key K) bool {
+	var ok bool
+	t.root, ok = t.root.remove(t.less, key)
+	if t.root != nil {
+		t.root.parent = nil
+		t.root.color = LLRB_BLACK
+	}
+	if ok {
+		t.size--
+	}
+	return ok
+}
+
+// Find returns the LLRBIterator that matches the key.  The second value is nil if the key is not found.
+func (t *LLRB[K, V]) Find(key K) (LLRBIterator[K, V], bool) {
+	found := true
+	nd := t.root.find(t.less, key)
+	if nd == nil {
+		nd = t.end_node
+		found = false
+	}
+	return LLRBIterator[K, V]{
+		nd:   nd,
+		tree: t,
+	}, found
+}
+
+// Find returns the value of the key.  The second value is nil if the key is not found.
+func (t *LLRB[K, V]) FindValue(key K) (V, bool) {
+	it, ok := t.Find(key)
+	if !ok {
+		var v V
+		return v, false
+	}
+
+	return it.Value(), true
+}
+
+func (t *LLRB[K, V]) Begin() (LLRBIterator[K, V], bool) {
+	if t.root == nil {
+		return t.End(), false
+	}
+	return LLRBIterator[K, V]{
+		nd:   t.root.findMin(),
+		tree: t,
+	}, true
+}
+
+func (t *LLRB[K, V]) End() LLRBIterator[K, V] {
+	return LLRBIterator[K, V]{
+		nd:   t.end_node,
+		tree: t,
+	}
+}
+
+func (t *LLRB[K, V]) RBegin() (LLRBReverseIterator[K, V], bool) {
+	if t.root == nil {
+		return t.REnd(), false
+	}
+	return LLRBReverseIterator[K, V]{
+		nd:   t.root.findMax(),
+		tree: t,
+	}, true
+}
+
+func (t *LLRB[K, V]) REnd() LLRBReverseIterator[K, V] {
+	return LLRBReverseIterator[K, V]{
+		nd:   t.rend_node,
+		tree: t,
+	}
+}
+
+// LowerBound returns the LLRBIterator that has the lowest key which is greater than or equal to the specified key.
+func (t *LLRB[K, V]) LowerBound(key K) (LLRBIterator[K, V], bool) {
+	if t.root == nil {
+		return t.End(), false
+	}
+
+	p := t.root
+	for {
+		if p.left != nil && t.less(key, p.key) {
+			p = p.left
+			continue
+		}
+		if p.right != nil && t.less(p.key, key) {
+			p = p.right
+			continue
+		}
+
+		if t.less(p.key, key) {
+			p = p.findNext(t.less)
+		}
+		break
+	}
+
+	return LLRBIterator[K, V]{
+		nd:   p,
+		tree: t,
+	}, p != nil
+}
+
+// UpperBound returns the LLRBIterator that has a key which is lesser than or equal to the specified key.
+func (t *LLRB[K, V]) UpperBound(key K) (LLRBIterator[K, V], bool) {
+	if t.root == nil {
+		return t.End(), false
+	}
+
+	p := t.root
+	for {
+		if p.left != nil && t.less(key, p.key) {
+			p = p.left
+			continue
+		}
+		if p.right != nil && t.less(p.key, key) {
+			p = p.right
+			continue
+		}
+
+		if !t.less(key, p.key) {
+			p = p.findNext(t.less)
+		}
+		break
+	}
+
+	return LLRBIterator[K, V]{
+		nd:   p,
+		tree: t,
+	}, p != nil
+}
+
+func (t *LLRB[K, V]) EqualRange(key K) (LLRBIterator[K, V], LLRBIterator[K, V]) {
+	lo, _ := t.LowerBound(key)
+	hi, _ := t.UpperBound(key)
+	return lo, hi
+}
+
+// String returns the string representation of the LLRB
+func (t *LLRB[K, V]) String() string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "[")
+	sp := ""
+	for it, ok := t.Begin(); ok; it, ok = it.Next() {
+		fmt.Fprintf(buf, "%s%s", sp, it)
+		sp = " "
+	}
+	fmt.Fprintf(buf, "]")
+	return buf.String()
+}
+
+// Graphviz returns the graph directives of the LLRB in graphviz format
+func (t *LLRB[K, V]) Graphviz() string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "digraph hierarchy {\n")
+	fmt.Fprintf(buf, "graph [splines=line];\n")
+	t.root.graphviz(buf)
+	if t.root != nil {
+		if t.root.isRed() {
+			fmt.Fprintf(buf, "%d [color=red fontcolor=red]\n", t.root.key)
+		} else {
+			fmt.Fprintf(buf, "%d [color=black fontcolor=black]\n", t.root.key)
+		}
+	}
+	fmt.Fprintf(buf, "}\n")
+	return buf.String()
+}
+
+//
+// LLRB Iterator
+//
+
+type LLRBIterator[K, V any] struct {
+	nd   *LLRBNode[K, V]
+	tree *LLRB[K, V]
+}
+
+func (it LLRBIterator[K, V]) IsEnd() bool {
+	return it.nd == it.tree.end_node
+}
+
+func (it LLRBIterator[K, V]) Key() K {
+	return it.nd.Key()
+}
+
+func (it LLRBIterator[K, V]) Value() V {
+	return it.nd.Value()
+}
+
+func (it LLRBIterator[K, V]) SetValue(val V) {
+	it.nd.SetValue(val)
+}
+
+func (it LLRBIterator[K, V]) String() string {
+	return it.nd.String()
+}
+
+func (it LLRBIterator[K, V]) Next() (LLRBIterator[K, V], bool) {
+	found := true
+	next := it.nd.findNext(it.tree.less)
+	if next == nil {
+		next = it.tree.end_node
+		found = false
+	}
+
+	return LLRBIterator[K, V]{
+		nd:   next,
+		tree: it.tree,
+	}, found
+}
+
+func (it LLRBIterator[K, V]) Prev() (LLRBIterator[K, V], bool) {
+	if it.IsEnd() {
+		if it.tree.Len() == 0 { // empty tree
+			return it, false
+		}
+		return LLRBIterator[K, V]{
+			nd:   it.tree.root.findMax(),
+			tree: it.tree,
+		}, true
+	}
+	found := true
+	prev := it.nd.findPrev(it.tree.less)
+	if prev == nil {
+		prev = it.tree.end_node
+		found = false
+	}
+	return LLRBIterator[K, V]{
+		nd:   prev,
+		tree: it.tree,
+	}, found
+}
+
+func (it LLRBIterator[K, V]) Less(jt LLRBIterator[K, V]) bool {
+	if it.IsEnd() {
+		return false
+	}
+	if jt.IsEnd() {
+		return true
+	}
+	return it.tree.less(it.nd.key, jt.nd.key)
+}
+
+type LLRBReverseIterator[K, V any] LLRBIterator[K, V]
+
+func (it LLRBReverseIterator[K, V]) IsEnd() bool {
+	return it.nd == it.tree.rend_node
+}
+
+func (it LLRBReverseIterator[K, V]) Key() K {
+	return LLRBIterator[K, V](it).Key()
+}
+
+func (it LLRBReverseIterator[K, V]) Value() V {
+	return LLRBIterator[K, V](it).Value()
+}
+
+func (it LLRBReverseIterator[K, V]) SetValue(val V) {
+	LLRBIterator[K, V](it).SetValue(val)
+}
+
+func (it LLRBReverseIterator[K, V]) String() string {
+	return LLRBIterator[K, V](it).String()
+}
+
+func (it LLRBReverseIterator[K, V]) Next() (LLRBReverseIterator[K, V], bool) {
+	found := true
+	next := it.nd.findPrev(it.tree.less)
+	if next == nil {
+		next = it.tree.rend_node
+		found = false
+	}
+
+	return LLRBReverseIterator[K, V]{
+		nd:   next,
+		tree: it.tree,
+	}, found
+}
+
+func (it LLRBReverseIterator[K, V]) Prev() (LLRBReverseIterator[K, V], bool) {
+	if it.IsEnd() {
+		if it.tree.Len() == 0 { // empty tree
+			return it, false
+		}
+		return LLRBReverseIterator[K, V]{
+			nd:   it.tree.root.findMin(),
+			tree: it.tree,
+		}, true
+	}
+	found := true
+	prev := it.nd.findNext(it.tree.less)
+	if prev == nil {
+		prev = it.tree.rend_node
+		found = false
+	}
+	return LLRBReverseIterator[K, V]{
+		nd:   prev,
+		tree: it.tree,
+	}, found
+}
+
+func (it LLRBReverseIterator[K, V]) Less(jt LLRBReverseIterator[K, V]) bool {
+	if it.IsEnd() {
+		return true
+	}
+	if jt.IsEnd() {
+		return false
+	}
+	return it.tree.less(it.nd.key, jt.nd.key)
+}
+
+//
+// LLRB Node
+//
+
+// LLRBNode represents the node of LLRB
+type LLRBNode[K, V any] struct {
+	key                 K
+	value               V
+	parent, left, right *LLRBNode[K, V]
+	color               bool
+}
+
+// LLRB_RED and LLRB_BLACK represent colors of the LLRBNode
+const (
+	LLRB_RED   = false
+	LLRB_BLACK = true
+)
+
+// Key returns the key of the node
+func (nd *LLRBNode[K, V]) Key() K {
+	return nd.key
+}
+
+// Value returns the value of the node
+func (nd *LLRBNode[K, V]) Value() V {
+	return nd.value
+}
+
+// SetValue updates the value of the node with val
+func (nd *LLRBNode[K, V]) SetValue(val V) {
+	nd.value = val
+}
+
+// String returns the string representation of the node
+func (nd *LLRBNode[K, V]) String() string {
+	return fmt.Sprintf("%d:%v", nd.key, nd.value)
+}
+
+func (nd *LLRBNode[K, V]) find(less func(a, b K) bool, key K) *LLRBNode[K, V] {
+	if nd == nil {
+		return nil
+	}
+	if less(key, nd.key) {
+		return nd.left.find(less, key)
+	} else if less(nd.key, key) {
+		return nd.right.find(less, key)
+	}
+	return nd
+}
+
+func (nd *LLRBNode[K, V]) fixup() *LLRBNode[K, V] {
+	if !nd.left.isRed() && nd.right.isRed() {
+		nd = nd.rotateLeft()
+	}
+	if nd.left.isRed() && nd.left != nil && nd.left.left.isRed() {
+		nd = nd.rotateRight()
+	}
+	if nd.left.isRed() && nd.right.isRed() {
+		nd.flipColors()
+	}
+	return nd
+}
+
+func (nd *LLRBNode[K, V]) insert(less func(a, b K) bool, key K, val V) (*LLRBNode[K, V], bool) {
+	var ok bool
+	if nd == nil {
+		nd = &LLRBNode[K, V]{
+			key:   key,
+			value: val,
+		}
+		return nd, true
+	} else if less(key, nd.key) {
+		nd.left, ok = nd.left.insert(less, key, val)
+		nd.left.parent = nd
+	} else if less(nd.key, key) {
+		nd.right, ok = nd.right.insert(less, key, val)
+		nd.right.parent = nd
+	} else {
+		nd.value = val
+	}
+	return nd.fixup(), ok
+}
+
+func (nd *LLRBNode[K, V]) findMin() *LLRBNode[K, V] {
+	p := nd
+	for p.left != nil {
+		p = p.left
+	}
+	return p
+}
+
+func (nd *LLRBNode[K, V]) findMax() *LLRBNode[K, V] {
+	p := nd
+	for p.right != nil {
+		p = p.right
+	}
+	return p
+}
+
+func (nd *LLRBNode[K, V]) findNext(less func(K, K) bool) *LLRBNode[K, V] {
+	if nd.right != nil {
+		return nd.right.findMin()
+	}
+
+	p := nd.parent
+	for p != nil && less(p.key, nd.key) {
+		p = p.parent
+	}
+	return p
+}
+
+func (nd *LLRBNode[K, V]) findPrev(less func(K, K) bool) *LLRBNode[K, V] {
+	if nd.left != nil {
+		return nd.left.findMax()
+	}
+
+	p := nd.parent
+	for p != nil && less(nd.key, p.key) {
+		p = p.parent
+	}
+	return p
+}
+
+func (nd *LLRBNode[K, V]) removeMin() *LLRBNode[K, V] {
+	if nd.left == nil {
+		return nd.right
+	}
+
+	if !nd.left.isRed() && nd.left != nil && !nd.left.left.isRed() {
+		nd = nd.moveRedLeft()
+	}
+
+	nd.left = nd.left.removeMin()
+	if nd.left != nil {
+		nd.left.parent = nd
+	}
+
+	return nd.fixup()
+}
+
+func (nd *LLRBNode[K, V]) moveRedLeft() *LLRBNode[K, V] {
+	nd.flipColors()
+	if nd.right != nil && nd.right.left.isRed() {
+		nd.right = nd.right.rotateRight()
+		if nd.right != nil {
+			nd.right.parent = nd
+		}
+		nd = nd.rotateLeft()
+		nd.flipColors()
+	}
+	return nd
+}
+
+func (nd *LLRBNode[K, V]) moveRedRight() *LLRBNode[K, V] {
+	nd.flipColors()
+	if nd.left != nil && nd.left.left.isRed() {
+		nd = nd.rotateRight()
+		nd.flipColors()
+	}
+	return nd
+}
+
+func (nd *LLRBNode[K, V]) remove(less func(a, b K) bool, key K) (*LLRBNode[K, V], bool) {
+	if nd == nil {
+		return nil, false
+	}
+
+	var ok bool
+	if less(key, nd.key) {
+		if !nd.left.isRed() && nd.left != nil && !nd.left.left.isRed() {
+			nd = nd.moveRedLeft()
+		}
+		nd.left, ok = nd.left.remove(less, key)
+		if nd.left != nil {
+			nd.left.parent = nd
+		}
+	} else {
+		if nd.left.isRed() {
+			nd = nd.rotateRight()
+		}
+		if (!less(nd.key, key) && !less(key, nd.key)) && nd.right == nil {
+			return nil, true
+		}
+		if !nd.right.isRed() && nd.right != nil && !nd.right.left.isRed() {
+			nd = nd.moveRedRight()
+		}
+		if !less(nd.key, key) && !less(key, nd.key) {
+			min := nd.right.findMin()
+			nd.key, nd.value = min.key, min.value
+			nd.right = nd.right.removeMin()
+			if nd.right != nil {
+				nd.right.parent = nd
+			}
+			ok = true
+		} else {
+			nd.right, ok = nd.right.remove(less, key)
+			if nd.right != nil {
+				nd.right.parent = nd
+			}
+		}
+	}
+	return nd.fixup(), ok
+}
+
+func (nd *LLRBNode[K, V]) rotateLeft() *LLRBNode[K, V] {
+	x := nd.right
+	nd.right = x.left
+	if nd.right != nil {
+		nd.right.parent = nd
+	}
+	x.left = nd
+	if x.left != nil {
+		x.left.parent = x
+	}
+	x.color = nd.color
+	nd.color = LLRB_RED
+	return x
+}
+
+func (nd *LLRBNode[K, V]) rotateRight() *LLRBNode[K, V] {
+	x := nd.left
+	nd.left = x.right
+	if nd.left != nil {
+		nd.left.parent = nd
+	}
+	x.right = nd
+	if x.right != nil {
+		x.right.parent = x
+	}
+	x.color = nd.color
+	nd.color = LLRB_RED
+	return x
+}
+
+func (nd *LLRBNode[K, V]) flipColors() {
+	nd.color = !nd.color
+	if nd.left != nil {
+		nd.left.color = !nd.left.color
+	}
+	if nd.right != nil {
+		nd.right.color = !nd.right.color
+	}
+}
+
+func (nd *LLRBNode[K, V]) isRed() bool {
+	if nd == nil {
+		return false
+	}
+	return nd.color == LLRB_RED
+}
+
+func (nd *LLRBNode[K, V]) graphviz(w io.Writer) {
+	if nd == nil {
+		return
+	}
+	if nd.left != nil {
+		fmt.Fprintf(w, `%d -> %d`, nd.key, nd.left.key)
+		if nd.left.isRed() {
+			fmt.Fprintf(w, ` [color=red]`)
+		}
+		fmt.Fprintln(w)
+		nd.left.graphviz(w)
+	}
+	if nd.right != nil {
+		fmt.Fprintf(w, `%d -> %d`, nd.key, nd.right.key)
+		if nd.right.isRed() {
+			fmt.Fprintf(w, ` [color=red]`)
+		}
+		fmt.Fprintln(w)
+		nd.right.graphviz(w)
+	}
+	if nd.isRed() {
+		fmt.Fprintf(w, "%d [color=red fontcolor=red]\n", nd.key)
+	}
+}

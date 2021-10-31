@@ -1,0 +1,8 @@
+*.bak
+*.go-e
+
+a.out
+.build
+.fastbuild
+gottani.go
+testcases/

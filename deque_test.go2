@@ -1,0 +1,64 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"testing"
+)
+
+func TestDeque(t *testing.T) {
+	q := NewDeque[int]()
+
+	for sz := 2; sz < 256; sz++ {
+		for i := 0; i < sz; i++ {
+			q.PushBack(i)
+			if got := q.Len(); got != i+1 {
+				t.Errorf("Len() returns wrong value: want=%d got=%d\n", i+1, got)
+			}
+		}
+
+		i := 0
+		for it := q.Begin(); it != q.End(); it = it.Next() {
+			if v := it.Get(); i != v {
+				t.Errorf("All() returns wrong seques of values: want[%d]=%d got[%d]=%d\n", i, i, i, v)
+			}
+			i++
+		}
+
+		for i := 0; i < sz; i++ {
+			got := q.PopFront()
+			if i != got {
+				t.Errorf("PopFront returns wrong value: want=%d got=%d\n", i, got)
+			}
+			if got := q.Len(); got != sz-i-1 {
+				t.Errorf("Len() returns wrong value: want=%d got=%d\n", sz-i-1, got)
+			}
+		}
+
+	}
+
+	q = NewDeque[int]()
+
+	// PushBack -> PopBack
+	for sz := 2; sz < 256; sz++ {
+		for i := 0; i < sz; i++ {
+			q.PushBack(i)
+			if got := q.Len(); got != i+1 {
+				t.Errorf("Len() returns wrong value: want=%d got=%d\n", sz, got)
+			}
+		}
+
+		for i := 0; i < sz; i++ {
+			want := sz - i - 1
+			got := q.PopBack()
+			if want != got {
+				t.Errorf("PopFront returns wrong value: want=%d got=%d\n", want, got)
+			}
+			if got := q.Len(); got != sz-i-1 {
+				t.Errorf("Len() returns wrong value: want=%d got=%d\n", sz-i-1, got)
+			}
+		}
+
+	}
+
+}

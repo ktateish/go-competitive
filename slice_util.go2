@@ -1,0 +1,130 @@
+package main
+
+// vim:set ft=go:
+
+import "strings"
+
+// snip ------------------------------------------------------------------------
+
+func SliceMaxElement[T any](s []T, max func(a, b T) T) T {
+	x := s[0]
+	for i := 1; i < len(s); i++ {
+		x = max(x, s[i])
+	}
+	return x
+}
+
+func SliceFilter[T any](s []T, pred func(x T) bool) []T {
+	res := make([]T, 0)
+	for _, v := range s {
+		if pred(v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func SliceMap[F, T any](s []F, mapping func(from F) T) []T {
+	res := make([]T, len(s))
+	for i := range s {
+		res[i] = mapping(s[i])
+	}
+	return res
+}
+
+func SliceFoldl[T any](s []T, op func(a, b T) T, init T) T {
+	res := init
+	for _, v := range s {
+		res = op(res, v)
+	}
+	return res
+}
+
+func SliceFoldr[T any](s []T, op func(a, b T) T, init T) T {
+	res := init
+	for i := len(s) - 1; 0 <= i; i-- {
+		res = op(s[i], res)
+	}
+	return res
+}
+
+func SliceLess[T any](s []T, t []T, less func(a, b T) bool) bool {
+	for i, j := 0, 0; i < len(s) && j < len(t); i, j = i+1, j+1 {
+		if less(s[i], t[j]) {
+			return true
+		} else if less(t[j], s[i]) {
+			return false
+		}
+	}
+	if len(s) < len(t) {
+		return true
+	}
+	return false
+}
+
+func SliceUniq[T comparable](s []T) []T {
+	var t []T
+	for i := range s {
+		if i == 0 || s[i] != t[len(t)-1] {
+			t = append(t, s[i])
+		}
+	}
+	return t
+}
+
+func Iota[T OrderedNumeric](s []T, init T) {
+	for i := range s {
+		s[i] = init + T(i)
+	}
+}
+
+func SliceCompareFunc[T any](s []T, v T, less func(T, T) bool) func(int) int {
+	cmp := CompareFunc(less)
+	return func(i int) int {
+		return cmp(v, s[i])
+	}
+}
+
+func SliceBinSearch[T any](s []T, v T, less func(T, T) bool) int {
+	cmp := SliceCompareFunc(s, v, less)
+	return BinSearch(0, len(s), cmp)
+}
+
+func SliceLowerBound[T any](s []T, v T, less func(T, T) bool) int {
+	cmp := SliceCompareFunc(s, v, less)
+	pred := func(i int) bool { return cmp(i) <= 0 }
+	return LowerBound(0, len(s), pred)
+}
+
+func SliceUpperBound[T any](s []T, v T, less func(T, T) bool) int {
+	cmp := SliceCompareFunc(s, v, less)
+	pred := func(i int) bool { return 0 <= cmp(i) }
+	return UpperBound(0, len(s), pred)
+}
+
+func SliceEqualRange[T any](s []T, v T, less func(T, T) bool) (int, int) {
+	cmp := SliceCompareFunc(s, v, less)
+	return EqualRange(0, len(s), cmp)
+}
+
+func SliceToString[T any](s []T) string {
+	return strings.Join(SliceMap(s, func(x T) string { return sprint(x) }), " ")
+}
+
+func SliceFill[T any](s []T, x T) {
+	for i := range s {
+		s[i] = x
+	}
+}
+
+func SliceEqual[T comparable](s, x []T) bool {
+	if len(s) != len(x) {
+		return false
+	}
+	for i := range s {
+		if s[i] != x[i] {
+			return false
+		}
+	}
+	return true
+}

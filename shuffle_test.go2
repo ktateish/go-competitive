@@ -1,0 +1,48 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"reflect"
+	"testing"
+)
+
+func TestShuffle(t *testing.T) {
+	t.Parallel()
+	t.Run("Shuffle:simple usage", func(t *testing.T) {
+		input := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		original := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		Shuffle(input)
+		if reflect.DeepEqual(original, input) {
+			t.Errorf("Shuffle() failed to shuffle : original=%v got=%v\n", original, input)
+		}
+	})
+	t.Run("Shuffle:zero length slice", func(t *testing.T) {
+		input := []int{}
+		want := []int{}
+		Shuffle(input)
+		if !reflect.DeepEqual(input, want) {
+			t.Errorf("Shuffle() failed to shuffle : want=%v got=%v\n", want, input)
+		}
+	})
+}
+
+func TestAShuffle(t *testing.T) {
+	t.Parallel()
+	t.Run("AShuffle:simple usage", func(t *testing.T) {
+		input := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		original := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		got := AShuffle(input)
+		if reflect.DeepEqual(original, got) {
+			t.Errorf("Shuffle() failed to shuffle : original=%v got=%v\n", original, got)
+		}
+	})
+	t.Run("AShuffle:zero length slice", func(t *testing.T) {
+		input := []int{}
+		want := []int{}
+		got := AShuffle(input)
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("Shuffle() failed to shuffle : want=%v got=%v\n", want, got)
+		}
+	})
+}

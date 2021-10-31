@@ -1,0 +1,169 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type MinCostFlowEdge[Cap OrderedNumeric, Cost SignedNumeric] struct {
+	From, To   int
+	Capa, Flow Cap
+	Cost       Cost
+}
+
+type minCostFloeEdge[Cap OrderedNumeric, Cost SignedNumeric] struct {
+	to, rev int
+	capa    Cap
+	cost    Cost
+}
+
+type MinCostFlow[Cap OrderedNumeric, Cost SignedNumeric] struct {
+	n   int
+	pos [][2]int
+	g   [][]minCostFloeEdge[Cap, Cost]
+}
+
+func NewMinCostFlow[Cap OrderedNumeric, Cost SignedNumeric](n int) *MinCostFlow[Cap, Cost] {
+	return &MinCostFlow[Cap, Cost]{
+		n: n,
+		g: make([][]minCostFloeEdge[Cap, Cost], n),
+	}
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) AddEdge(from, to int, capa Cap, cost Cost) int {
+	assert(0 <= from && from < mcf.n)
+	assert(0 <= to && to < mcf.n)
+	m := len(mcf.pos)
+	mcf.pos = append(mcf.pos, [2]int{from, len(mcf.g[from])})
+	mcf.g[from] = append(mcf.g[from], minCostFloeEdge[Cap, Cost]{to, len(mcf.g[to]), capa, cost})
+	mcf.g[to] = append(mcf.g[to], minCostFloeEdge[Cap, Cost]{from, len(mcf.g[from]) - 1, 0, -cost})
+	return m
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) GetEdge(i int) MinCostFlowEdge[Cap, Cost] {
+	m := len(mcf.pos)
+	assert(0 <= i && i < m)
+	e := mcf.g[mcf.pos[i][0]][mcf.pos[i][1]]
+	re := mcf.g[e.to][e.rev]
+	return MinCostFlowEdge[Cap, Cost]{mcf.pos[i][0], e.to, e.capa + re.capa, re.capa, e.cost}
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) Edges() []MinCostFlowEdge[Cap, Cost] {
+	m := len(mcf.pos)
+	res := make([]MinCostFlowEdge[Cap, Cost], m)
+	for i := range res {
+		res[i] = mcf.GetEdge(i)
+	}
+	return res
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) Flow(s, t int) (Cap, Cost) {
+	sl := mcf.Slope(s, t)
+	n := len(sl) - 1
+	return sl[n].First, sl[n].Second
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) FlowWithLimit(s, t int, flowLimit Cap) (Cap, Cost) {
+	sl := mcf.SlopeWithLimit(s, t, flowLimit)
+	n := len(sl) - 1
+	return sl[n].First, sl[n].Second
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) Slope(s, t int) []Pair[Cap, Cost] {
+	return mcf.SlopeWithLimit(s, t, numeric_limits_max[Cap]())
+}
+
+type minCostFlowQueueElm[Cost OrderedNumeric] struct {
+	key Cost
+	to  int
+}
+
+func (mcf *MinCostFlow[Cap, Cost]) SlopeWithLimit(s, t int, flowLimit Cap) []Pair[Cap, Cost] {
+	assert(0 <= s && s < mcf.n)
+	assert(0 <= t && t < mcf.n)
+	assert(s != t)
+
+	dual := make([]Cost, mcf.n)
+	dist := make([]Cost, mcf.n)
+	pv := make([]int, mcf.n)
+	pe := make([]int, mcf.n)
+	vis := make([]bool, mcf.n)
+	dualRef := func() bool {
+		for i := range dual {
+			dist[i] = numeric_limits_max[Cost]()
+			pv[i] = -1
+			pe[i] = -1
+			vis[i] = false
+		}
+		que := NewPriorityQueue[Pair[Cost, int]](func(a, b Pair[Cost, int]) bool { return a.First < b.First })
+		dist[s] = 0
+		que.Push(MakePair(Cost(0), s))
+		for !que.Empty() {
+			v := que.Pop().Second
+			if vis[v] {
+				continue
+			}
+			vis[v] = true
+			if v == t {
+				break
+			}
+			for i := 0; i < len(mcf.g[v]); i++ {
+				e := mcf.g[v][i]
+				if vis[e.to] || e.capa == 0 {
+					continue
+				}
+				cost := e.cost - dual[e.to] + dual[v]
+				if dist[e.to]-dist[v] > cost {
+					dist[e.to] = dist[v] + cost
+					pv[e.to] = v
+					pe[e.to] = i
+					que.Push(MakePair(dist[e.to], e.to))
+				}
+			}
+		}
+		if !vis[t] {
+			return false
+		}
+		for v := 0; v < mcf.n; v++ {
+			if !vis[v] {
+				continue
+			}
+			dual[v] -= dist[t] - dist[v]
+		}
+		return true
+	}
+
+	var flow Cap
+	var cost Cost
+	var prevCost Cost = -1
+	result := make([]Pair[Cap, Cost], 0)
+	result = append(result, MakePair(flow, cost))
+	for flow < flowLimit {
+		if !dualRef() {
+			break
+		}
+		c := flowLimit - flow
+		for v := t; v != s; v = pv[v] {
+			c = min(c, mcf.g[pv[v]][pe[v]].capa)
+		}
+		for v := t; v != s; v = pv[v] {
+			e := &mcf.g[pv[v]][pe[v]]
+			e.capa -= c
+			mcf.g[v][e.rev].capa += c
+		}
+		d := -dual[s]
+		flow += c
+		cost += Cost(c) * d
+		if prevCost == d {
+			result = result[:len(result)-1]
+		}
+		result = append(result, MakePair(flow, cost))
+		prevCost = cost
+	}
+	return result
+}

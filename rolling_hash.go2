@@ -1,0 +1,221 @@
+package main
+
+import "math/rand"
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+const (
+	// Modulo for Rolling Hash. See https://qiita.com/keymoon/items/11fac5627672a6d6a9f6
+	ROLLING_HASH_MODULO = (1 << 61) - 1
+)
+
+// StringContains returns true if s contains t, otherwise false.
+func StringContains(s, t string) bool {
+	return SequenceContains([]byte(s), []byte(t))
+}
+
+// SequenceContains returns true if s contains t, otherwise false.
+func SequenceContains[T Integer](s, t []T) bool {
+	return 0 < len(SequenceFindAll(s, t))
+}
+
+// StringFindAll returns the all positions of t appeared in s.
+func StringFindAll(s, t string) []int {
+	return SequenceFindAll([]byte(s), []byte(t))
+}
+
+// SequenceFindAll returns the all positions of t appeared in s.
+func SequenceFindAll[T Integer](s, t []T) []int {
+	if len(s) < len(t) {
+		return []int{}
+	}
+	b0, b1 := rolling_hash_get_base()
+	f0 := RollingHashFindAll(s, t, b0)
+	f1 := RollingHashFindAll(s, t, b1)
+
+	var res []int
+	var i, j int
+	for i < len(f0) && j < len(f1) {
+		if f0[i] < f1[j] {
+			i++
+		} else if f0[i] > f1[j] {
+			j++
+		} else {
+			res = append(res, f0[i])
+			i++
+			j++
+		}
+	}
+	return res
+}
+
+// SequenceFindAll2D returns the all positions of t appeared in s.
+func SequenceFindAll2D[T Integer](s, t [][]T) [][2]int {
+	res := make([][2]int, 0)
+	sH := len(s)
+	if sH == 0 {
+		return res
+	}
+	sW := len(s[0])
+	tH := len(t)
+	if tH == 0 {
+		return res
+	}
+	tW := len(t[0])
+	if sH < tH || sW < tW {
+		return res
+	}
+
+	b0, b1 := rolling_hash_get_base()
+	bm0 := rolling_hash_exp_(b0, uint64(tW))
+	bm1 := rolling_hash_exp_(b1, uint64(tH))
+
+	var th uint64
+	{
+		hs := make([]uint64, tH)
+		for i := range t {
+			for j := range t[i] {
+				hs[i] = RollingHashAdd(hs[i], b0, uint64(t[i][j]))
+			}
+			th = RollingHashAdd(th, b1, hs[i])
+		}
+	}
+
+	var sh uint64
+	hs := make([]uint64, sH)
+	for i := range s {
+		for j := 0; j < tW; j++ {
+			hs[i] = RollingHashAdd(hs[i], b0, uint64(s[i][j]))
+		}
+	}
+	for i := 0; i < tH; i++ {
+		sh = RollingHashAdd(sh, b1, hs[i])
+	}
+
+	for j := 0; j+tW <= sW; j++ {
+		for i := 0; i+tH <= sH; i++ {
+			if sh == th {
+				res = append(res, [2]int{i, j})
+			}
+			if i+tH < sH {
+				sh = RollingHashShift(sh, b1, bm1, uint64(hs[i]), uint64(hs[i+tH]))
+			}
+		}
+		if j+tW < sW {
+			for i := range s {
+				hs[i] = RollingHashShift(hs[i], b0, bm0, uint64(s[i][j]), uint64(s[i][j+tW]))
+			}
+			sh = 0
+			for i := 0; i < tH; i++ {
+				sh = RollingHashAdd(sh, b1, hs[i])
+			}
+		}
+	}
+
+	return res
+}
+
+// RollingHashAdd calculates new hash value by adding v to the current hash
+// value v using b.
+//
+// The initial h must be 0.
+// The b is a base integer that is co-prime with the ROLLING_HASH_MODULO.
+//
+// This is a low level api. Use SequenceContains, SequenceFindAll, etc.
+func RollingHashAdd(h, b, v uint64) uint64 {
+	return (rolling_hash_mul_(h, b) + v) % ROLLING_HASH_MODULO
+}
+
+// RollingHashAdd calculates new hash value by adding add and removing sub
+// for the current hash value v using b and bm.
+//
+// The h must be a value calulated by RollingHashAdd.
+// The b is a base integer that is co-prime with the ROLLING_HASH_MODULO.
+// The bm is b^m where m is the length of added sequence.
+// The sub is the value that is removed from the added sequence.
+// The add is the value that is added to the added sequence.
+//
+// This is a low level api. Use BytesContains, BytesFindAll, etc.
+func RollingHashShift(h, b, bx, sub, add uint64) uint64 {
+	x := rolling_hash_mul_(h, b) + add
+	y := (ROLLING_HASH_MODULO - rolling_hash_mul_(sub, bx))
+	return (x + y) % ROLLING_HASH_MODULO
+}
+
+// RollingHashFindAll finds the positions in s that starts a sequence matched
+// to the given t using base integer b.
+func RollingHashFindAll[T Integer](s, t []T, b uint64) []int {
+	n := len(s)
+	m := len(t)
+	bm := rolling_hash_exp_(b, uint64(len(t)))
+	var sh, th uint64
+	for i := 0; i < m; i++ {
+		sh = RollingHashAdd(sh, b, uint64(s[i]))
+	}
+	for i := 0; i < m; i++ {
+		th = RollingHashAdd(th, b, uint64(t[i]))
+	}
+	res := make([]int, 0)
+	for i := 0; i+m <= n; i++ {
+		if sh == th {
+			res = append(res, i)
+		}
+		if i+m < n {
+			sh = RollingHashShift(sh, b, bm, uint64(s[i]), uint64(s[i+m]))
+		}
+	}
+	return res
+}
+
+func rolling_hash_mul_(a, b uint64) uint64 {
+	au := a >> 31
+	ad := a & ((1 << 31) - 1)
+	bu := b >> 31
+	bd := b & ((1 << 31) - 1)
+	mid := ad*bu + au*bd
+	midu := mid >> 30
+	midd := mid & ((1 << 30) - 1)
+	return rolling_hash_mod_(au*bu*2 + midu + (midd << 31) + ad*bd)
+}
+
+func rolling_hash_mod_(x uint64) uint64 {
+	xu := x >> 61
+	xd := x & ((1 << 61) - 1)
+	res := xu + xd
+	if ROLLING_HASH_MODULO <= res {
+		res -= ROLLING_HASH_MODULO
+	}
+	return res
+}
+
+func rolling_hash_exp_(n, e uint64) uint64 {
+	if e == 0 {
+		return 1
+	}
+	if e&1 == 1 {
+		return rolling_hash_mul_(n, rolling_hash_exp_(n, e-1))
+	} else {
+		t := rolling_hash_exp_(n, e/2)
+		return rolling_hash_mul_(t, t)
+	}
+}
+
+// Base for Rolling Hash. Must be co-prime with ROLLING_HASH_MODULO.
+// Two of them are chosen by init().
+var rolling_hash_base_candidates = []uint64{
+	167772161,
+	469762049,
+	754974721,
+	998244353,
+}
+
+func rolling_hash_get_base() (uint64, uint64) {
+	i := rand.Int() % len(rolling_hash_base_candidates)
+	j := rand.Int() % len(rolling_hash_base_candidates)
+	if i == j {
+		j = (j + 1) % len(rolling_hash_base_candidates)
+	}
+	return rolling_hash_base_candidates[i], rolling_hash_base_candidates[j]
+}

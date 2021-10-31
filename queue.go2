@@ -1,0 +1,39 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+type Queue[T any] struct {
+	a []T
+}
+
+func NewQueue[T any]() *Queue[T] {
+	return &Queue[T]{make([]T, 0)}
+}
+
+func (q *Queue[T]) Len() int {
+	return len(q.a)
+}
+
+func (q *Queue[T]) Empty() bool {
+	return q.Len() == 0
+}
+
+func (q *Queue[T]) Top() T {
+	return q.a[0]
+}
+
+func (q *Queue[T]) Push(x T) {
+	q.a = append(q.a, x)
+}
+
+func (q *Queue[T]) Pop() (x T) {
+	x = q.a[0]
+	q.a = q.a[1:]
+	return
+}
+
+func (q *Queue[T]) Clear() {
+	q.a = q.a[:0]
+}

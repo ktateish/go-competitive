@@ -1,0 +1,115 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"math"
+	"math/cmplx"
+)
+
+// snip ------------------------------------------------------------------------
+
+// Library for Geometry
+
+const (
+	PI = math.Pi
+)
+
+var EPS = 1e-10
+
+var Abs = cmplx.Abs
+var Acos = cmplx.Acos
+var Acosh = cmplx.Acosh
+var Asin = cmplx.Asin
+var Asinh = cmplx.Asinh
+var Atan = cmplx.Atan
+var Atanh = cmplx.Atanh
+var Conj = cmplx.Conj
+var Cos = cmplx.Cos
+var Cosh = cmplx.Cosh
+var Cot = cmplx.Cot
+var Exp = cmplx.Exp
+var Inf = cmplx.Inf
+var IsInf = cmplx.IsInf
+var IsNaN = cmplx.IsNaN
+var Log = cmplx.Log
+var Log10 = cmplx.Log10
+var NaN = cmplx.NaN
+var Phase = cmplx.Phase
+var Polar = cmplx.Polar
+var Pow = cmplx.Pow
+var Rect = cmplx.Rect
+var Sin = cmplx.Sin
+var Sinh = cmplx.Sinh
+var Sqrt = cmplx.Sqrt
+var Tan = cmplx.Tan
+var Tanh = cmplx.Tanh
+
+func Deg2Rad(d float64) float64 {
+	return d / 180.0 * PI
+}
+
+func Rad2Deg(r float64) float64 {
+	return r / PI * 180.0
+}
+
+func EQ(a, b float64) bool {
+	return abs(a-b) < EPS
+}
+
+func EQV(a, b complex128) bool {
+	return EQ(real(a), real(b)) && EQ(imag(a), imag(b))
+}
+
+func Dot(a, b complex128) float64 {
+	return real(a)*real(b) + imag(a)*imag(b)
+}
+
+func Cross(a, b complex128) float64 {
+	return real(a)*imag(b) - imag(a)*real(b)
+}
+
+type LineType [2]complex128
+
+func Line(a, b complex128) LineType {
+	return [2]complex128{a, b}
+}
+
+func (l LineType) Distance(c complex128) float64 {
+	a := l[0]
+	b := l[1]
+	return abs(Cross(b-a, c-a)) / Abs(b-a)
+}
+
+type SegmentType [2]complex128
+
+func Segment(a, b complex128) SegmentType {
+	return [2]complex128{a, b}
+}
+
+func (sg SegmentType) Distance(c complex128) float64 {
+	a := sg[0]
+	b := sg[1]
+	if Dot(b-a, c-a) < EPS {
+		return Abs(c - a)
+	}
+	if Dot(a-b, c-b) < EPS {
+		return Abs(c - b)
+	}
+	return abs(Cross(b-a, c-a)) / Abs(b-a)
+}
+
+// Geometry functions for integers
+
+// TriangleArea returns the area of the triangle with 3 points.
+// It returns area in integer, area in float64, and wheter the first value is precise.
+func TriangleArea(a, b, c [2]int) (int, float64, bool) {
+	x := [2]int{a[0] - b[0], a[1] - b[1]}
+	y := [2]int{c[0] - b[0], c[1] - b[1]}
+
+	ss := x[0]*y[1] - x[1]*y[0]
+	if ss < 0 {
+		ss = -ss
+	}
+	return ss / 2, float64(ss) / 2, ss%2 == 0
+}

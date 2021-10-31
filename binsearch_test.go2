@@ -1,0 +1,241 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"fmt"
+	"testing"
+)
+
+func TestBinSearch(t *testing.T) {
+	t.Parallel()
+	a := []int{2, 4, 6, 8, 10}
+	N := len(a)
+	tests := []struct {
+		input int
+		want  int
+	}{
+		{-1, N},
+		{0, N},
+		{1, N},
+		{2, 0},
+		{3, N},
+		{4, 1},
+		{5, N},
+		{6, 2},
+		{7, N},
+		{8, 3},
+		{9, N},
+		{10, 4},
+		{11, N},
+		{12, N},
+		{13, N},
+	}
+
+	for _, ts := range tests {
+		ts := ts
+		t.Run(fmt.Sprintf("BinSearch: %d", ts.input), func(t *testing.T) {
+			got := BinSearch(0, len(a), func(i int) int {
+				return ts.input - a[i]
+			})
+			if ts.want != got {
+				t.Fatalf("BinSearch(0, %d) searching %d for %v failed: want=%v got=%v\n", len(a), ts.input, a, ts.want, got)
+			}
+		})
+	}
+}
+
+func TestBinSearchRandom(t *testing.T) {
+	N := 20
+	b := make([]int, N)
+	Iota(b, 1)
+
+	for k := 0; k < 100; k++ {
+		a := append(b, b...)
+		a = append(a, b...)
+		Shuffle(a)
+		a = a[:N]
+		Sort(a, func(a, b int) bool { return a < b })
+		for v := -1; v < 22; v++ {
+			pred := func(i int) int {
+				return v - a[i]
+			}
+			want := LinearSearch(0, N, pred) != N
+			got := BinSearch(0, N, pred) != N
+			if want != got {
+				t.Fatalf("BinSearch(0, %d) searching %d for %v failed: want=%v got=%v\n", len(a), v, a, want, got)
+			}
+		}
+	}
+}
+
+func TestLowerBound(t *testing.T) {
+	t.Parallel()
+	a := []int{2, 4, 6, 8, 10}
+	tests := []struct {
+		input int
+		want  int
+	}{
+		{-1, 0},
+		{0, 0},
+		{1, 0},
+		{2, 0},
+		{3, 1},
+		{4, 1},
+		{5, 2},
+		{6, 2},
+		{7, 3},
+		{8, 3},
+		{9, 4},
+		{10, 4},
+		{11, 5},
+		{12, 5},
+		{13, 5},
+	}
+
+	for _, ts := range tests {
+		ts := ts
+		t.Run(fmt.Sprintf("LowerBound: %d", ts.input), func(t *testing.T) {
+			pred := func(i int) bool { return ts.input <= a[i] }
+			got := LowerBound(0, len(a), pred)
+			if ts.want != got {
+				t.Fatalf("LowerBound(0, %d) searching upper bound i that (%d <= a[i]) for the slice a=%v failed: want=%v got=%v\n", len(a), ts.input, a, ts.want, got)
+			}
+		})
+	}
+}
+
+func TestLowerBoundRandom(t *testing.T) {
+	N := 20
+	b := make([]int, N)
+	Iota(b, 1)
+
+	for k := 0; k < 100; k++ {
+		a := append(b, b...)
+		a = append(a, b...)
+		Shuffle(a)
+		a = a[:N]
+		Sort(a, func(a, b int) bool { return a < b })
+		for v := -1; v < 22; v++ {
+			pred := func(i int) bool { return v <= a[i] }
+			want := LinearLowerBound(0, N, pred)
+			got := LowerBound(0, N, pred)
+			if want != got {
+				t.Fatalf("LowerBound(0, %d) searching upper bound i that (%d <= a[i]) for the slice a=%v failed: want=%v got=%v\n", len(a), v, a, want, got)
+			}
+		}
+	}
+}
+
+func TestUpperBound(t *testing.T) {
+	t.Parallel()
+	a := []int{2, 4, 6, 8, 10}
+	tests := []struct {
+		input int
+		want  int
+	}{
+		{-1, 0},
+		{0, 0},
+		{1, 0},
+		{2, 1},
+		{3, 1},
+		{4, 2},
+		{5, 2},
+		{6, 3},
+		{7, 3},
+		{8, 4},
+		{9, 4},
+		{10, 5},
+		{11, 5},
+		{12, 5},
+		{13, 5},
+	}
+
+	for _, ts := range tests {
+		ts := ts
+		t.Run(fmt.Sprintf("UpperBound: %d", ts.input), func(t *testing.T) {
+			pred := func(i int) bool { return a[i] <= ts.input }
+			got := UpperBound(0, len(a), pred)
+			if ts.want != got {
+				t.Fatalf("UpperBound(0, %d) searching upper bound i that (a[i] <= %d) for the slice a=%v failed: want=%v got=%v\n", len(a), ts.input, a, ts.want, got)
+			}
+		})
+	}
+}
+
+func TestUpperBoundRandom(t *testing.T) {
+	N := 20
+	b := make([]int, N)
+	Iota(b, 1)
+
+	for k := 0; k < 100; k++ {
+		a := append(b, b...)
+		a = append(a, b...)
+		Shuffle(a)
+		a = a[:N]
+		Sort(a, func(a, b int) bool { return a < b })
+		for v := -1; v < 22; v++ {
+			pred := func(i int) bool { return a[i] <= v }
+			want := LinearUpperBound(0, N, pred)
+			got := UpperBound(0, N, pred)
+			if want != got {
+				t.Fatalf("UpperBound(0, %d) searching upper bound i that (%d <= a[i]) for the slice a=%v failed: want=%v got=%v\n", len(a), v, a, want, got)
+			}
+		}
+	}
+}
+
+func TestEqualRange(t *testing.T) {
+	t.Parallel()
+	a := []int{2, 2, 4, 4, 4, 6, 6, 7}
+	tests := []struct {
+		input int
+		want1 int
+		want2 int
+	}{
+		{-1, 0, 0},
+		{0, 0, 0},
+		{1, 0, 0},
+		{2, 0, 2},
+		{3, 2, 2},
+		{4, 2, 5},
+		{5, 5, 5},
+		{6, 5, 7},
+		{7, 7, 8},
+		{8, 8, 8},
+		{9, 8, 8},
+	}
+
+	for _, ts := range tests {
+		ts := ts
+		t.Run(fmt.Sprintf("EqualRange: %d", ts.input), func(t *testing.T) {
+			pred := func(i int) int { return ts.input - a[i] }
+			got1, got2 := EqualRange(0, len(a), pred)
+			if ts.want1 != got1 || ts.want2 != got2 {
+				t.Fatalf("EqualRange(0, %d) searching range that (a[i] == %d) for the slice a=%v failed: want=%v, %v got=%v, %v\n", len(a), ts.input, a, ts.want1, ts.want2, got1, got2)
+			}
+		})
+	}
+}
+
+func TestEqualRangeRandom(t *testing.T) {
+	N := 20
+	b := make([]int, N)
+	Iota(b, 1)
+
+	for k := 0; k < 100; k++ {
+		a := append(b, b...)
+		a = append(a, b...)
+		Shuffle(a)
+		a = a[:N]
+		Sort(a, func(a, b int) bool { return a < b })
+		for v := -1; v < 22; v++ {
+			pred := func(i int) int { return v - a[i] }
+			want1, want2 := LinearEqualRange(0, N, pred)
+			got1, got2 := EqualRange(0, N, pred)
+			if want1 != got1 || want2 != got2 {
+				t.Fatalf("EqualRange(0, %d) searching range that (a[i] == %d) for the slice a=%v failed: want=%v, %v got=%v, %v\n", len(a), v, a, want1, want2, got1, got2)
+			}
+		}
+	}
+}

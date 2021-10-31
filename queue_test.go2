@@ -1,0 +1,29 @@
+package main
+
+// vim:set ft=go:
+
+import "testing"
+
+func TestQueue(t *testing.T) {
+	q := NewQueue[int]()
+	inputs := []int{1, 2, 3, 4, 5}
+	wants := []int{1, 2, 3, 4, 5}
+
+	for i, v := range inputs {
+		if want, got := i, q.Len(); want != got {
+			t.Fatalf("q.Len() returns wrong value: want=%d got=%d\n", want, got)
+		}
+		q.Push(v)
+	}
+	if want, got := len(inputs), q.Len(); want != got {
+		t.Fatalf("q.Len() returns wrong value: want=%d got=%d\n", want, got)
+	}
+
+	for i := 0; 0 < q.Len(); i++ {
+		got := q.Pop()
+		want := wants[i]
+		if got != want {
+			t.Fatalf("q.Pop() returns wrong value: want=%d got=%d\n", want, got)
+		}
+	}
+}

@@ -1,0 +1,37 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"testing"
+)
+
+// vim:set ft=go:
+
+func naiveCountInversion[T any](a []T, less func(T, T) bool) int {
+	var res int
+	for i := range a {
+		for j := i + 1; j < len(a); j++ {
+			if less(a[j], a[i]) {
+				res++
+			}
+		}
+	}
+	return res
+}
+
+func TestCountInversionRandom(t *testing.T) {
+	N := 20
+	a := make([]int, N)
+	for i := range a {
+		a[i] = i + 1
+	}
+	for i := 0; i < 100; i++ {
+		Shuffle(a)
+		want := naiveCountInversion(a, func(a, b int) bool { return a < b })
+		got := CountInversion(a, func(a, b int) bool { return a < b })
+		if want != got {
+			t.Fatalf("CountInversion(%v) returns a wrong value: want=%d got=%d\n", a, want, got)
+		}
+	}
+}

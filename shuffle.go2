@@ -1,0 +1,51 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"math/rand"
+)
+
+// snip ------------------------------------------------------------------------
+
+// Shuffle shuffles s in place.
+func Shuffle[T any](s []T) {
+	length := len(s)
+	for i := 0; i < length; i++ {
+		j := rand.Int()%(length-i) + i
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+// AShuffle returns a copy of s shuffled.
+func AShuffle[T any](s []T) []T {
+	res := make([]T, len(s))
+	copy(res, s)
+	Shuffle(res)
+	return res
+}
+
+func Shuffle2D[T any](s [][]T) {
+	h := len(s)
+	if h == 0 {
+		return
+	}
+	w := len(s[0])
+
+	for p := 0; p < h*w; p++ {
+		q := rand.Int()%(h*w-p) + p
+		i1, j1 := p/w, p%w
+		i2, j2 := q/w, q%w
+		s[i1][j1], s[i2][j2] = s[i2][j2], s[i1][j1]
+	}
+}
+
+func AShuffle2D[T any](s [][]T) [][]T {
+	res := make([][]T, len(s))
+	for i := range res {
+		res[i] = make([]T, len(s[i]))
+		copy(res[i], s[i])
+	}
+	Shuffle2D(res)
+	return res
+}

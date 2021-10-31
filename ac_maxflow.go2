@@ -1,0 +1,171 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type MaxFlowEdge[Cap OrderedNumeric] struct {
+	From, To   int
+	Capa, Flow Cap
+}
+
+type maxFlowEdge[Cap OrderedNumeric] struct {
+	to, rev int
+	capa    Cap
+}
+
+type MaxFlow[Cap OrderedNumeric] struct {
+	n   int
+	pos [][2]int
+	g   [][]maxFlowEdge[Cap]
+}
+
+func NewMaxFlow[Cap OrderedNumeric](n int) *MaxFlow[Cap] {
+	return &MaxFlow[Cap]{
+		n: n,
+		g: make([][]maxFlowEdge[Cap], n),
+	}
+}
+
+func (mf *MaxFlow[Cap]) AddEdge(from, to int, capa Cap) int {
+	assert(0 <= from && from < mf.n)
+	assert(0 <= to && to < mf.n)
+	assert(0 <= capa)
+	m := len(mf.pos)
+	mf.pos = append(mf.pos, [2]int{from, len(mf.g[from])})
+	mf.g[from] = append(mf.g[from], maxFlowEdge[Cap]{to, len(mf.g[to]), capa})
+	mf.g[to] = append(mf.g[to], maxFlowEdge[Cap]{from, len(mf.g[from]) - 1, 0})
+	return m
+}
+
+func (mf *MaxFlow[Cap]) GetEdge(i int) MaxFlowEdge[Cap] {
+	m := len(mf.pos)
+	assert(0 <= i && i < m)
+	e := mf.g[mf.pos[i][0]][mf.pos[i][1]]
+	re := mf.g[e.to][e.rev]
+	return MaxFlowEdge[Cap]{mf.pos[i][0], e.to, e.capa + re.capa, re.capa}
+}
+
+func (mf *MaxFlow[Cap]) Edges() []MaxFlowEdge[Cap] {
+	m := len(mf.pos)
+	res := make([]MaxFlowEdge[Cap], m)
+	for i := range res {
+		res[i] = mf.GetEdge(i)
+	}
+	return res
+}
+
+func (mf *MaxFlow[Cap]) ChangeEdge(i int, newCapa, newFlow Cap) {
+	m := len(mf.pos)
+	assert(0 <= i && i < m)
+	assert(0 <= newFlow && newFlow <= newCapa)
+	e := &mf.g[mf.pos[i][0]][mf.pos[i][1]]
+	re := &mf.g[e.to][e.rev]
+	e.capa = newCapa - newFlow
+	re.capa = newFlow
+}
+
+func (mf *MaxFlow[Cap]) Flow(s, t int) Cap {
+	return mf.FlowWithLimit(s, t, numeric_limits_max[Cap]())
+}
+
+func (mf *MaxFlow[Cap]) FlowWithLimit(s, t int, flowLimit Cap) Cap {
+	assert(0 <= s && s < mf.n)
+	assert(0 <= t && t < mf.n)
+
+	level := make([]int, mf.n)
+	iter := make([]int, mf.n)
+
+	que := NewQueue[int]()
+	bfs := func() {
+		for i := range level {
+			level[i] = -1
+		}
+		level[s] = 0
+		que.Clear()
+		que.Push(s)
+		for !que.Empty() {
+			v := que.Pop()
+			for _, e := range mf.g[v] {
+				if e.capa == 0 || level[e.to] >= 0 {
+					continue
+				}
+				level[e.to] = level[v] + 1
+				if e.to == t {
+					return
+				}
+				que.Push(e.to)
+			}
+		}
+	}
+
+	var dfs func(v int, up Cap) Cap
+	dfs = func(v int, up Cap) Cap {
+		if v == s {
+			return up
+		}
+		var res Cap
+		level_v := level[v]
+		for ; iter[v] < len(mf.g[v]); iter[v]++ {
+			i := iter[v]
+			e := &mf.g[v][i]
+			if level_v <= level[e.to] || mf.g[e.to][e.rev].capa == 0 {
+				continue
+			}
+			d := dfs(e.to, min(up-res, mf.g[e.to][e.rev].capa))
+			if d <= 0 {
+				continue
+			}
+			mf.g[v][i].capa += d
+			mf.g[e.to][e.rev].capa -= d
+			res += d
+			if res == up {
+				break
+			}
+
+		}
+		return res
+	}
+
+	var flow Cap
+	for flow < flowLimit {
+		bfs()
+		if level[t] == -1 {
+			break
+		}
+		for i := range iter {
+			iter[i] = 0
+		}
+		for flow < flowLimit {
+			f := dfs(t, flowLimit-flow)
+			if f == 0 {
+				break
+			}
+			flow += f
+		}
+	}
+	return flow
+}
+
+func (mf *MaxFlow[Cap]) MinCut(s int) []bool {
+	visited := make([]bool, mf.n)
+	que := NewQueue[int]()
+	que.Push(s)
+	for !que.Empty() {
+		p := que.Pop()
+		visited[p] = true
+		for _, e := range mf.g[p] {
+			if 0 < e.capa && !visited[e.to] {
+				visited[e.to] = true
+				que.Push(e.to)
+			}
+		}
+	}
+	return visited
+}

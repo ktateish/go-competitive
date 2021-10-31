@@ -1,0 +1,25 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+import "math/bits"
+
+// snip ------------------------------------------------------------------------
+
+func intl_CeilPow2(n int) int {
+	x := uint(0)
+	for uint(1<<x) < uint(n) {
+		x++
+	}
+	return int(x)
+}
+
+func intl_BSF(n uint) int {
+	return bits.TrailingZeros(n)
+}

@@ -1,0 +1,32 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"math/rand"
+	"os"
+)
+
+// snip ------------------------------------------------------------------------
+
+func main() {
+	// initialize RANDOM_SEED
+	RANDOM_SEED = GetRandomSeed()
+	rand.Seed(RANDOM_SEED)
+
+	// refer for making it captible by gottani
+	_ = DEBUG
+
+	var err error
+	// Choose second line when interactive.
+	bio, err = NewFullBufferedIO(os.Stdin, os.Stdout)
+	//bio, err = NewLineBufferedIO(os.Stdin, os.Stdout)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	Main()
+
+	bio.Flush()
+}

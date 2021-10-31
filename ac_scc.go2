@@ -1,0 +1,149 @@
+package main
+
+// vim:set ft=go:
+
+// This is a port of the AC(AtCoder) Library [1] to Go.
+// These logics are based on the ac-library.
+// The ac-library is distributed under CC0.
+//
+// [1] https://github.com/atcoder/ac-library
+
+// snip ------------------------------------------------------------------------
+
+type SCCGraph struct {
+	internal *scc_graph
+}
+
+func NewSCCGraph(n int) *SCCGraph {
+	return &SCCGraph{
+		internal: new_scc_graph(n),
+	}
+}
+
+func (s *SCCGraph) AddEdge(from, to int) {
+	n := s.internal.NumVertices()
+	assert(0 <= from && from < n)
+	assert(0 <= to && to < n)
+	s.internal.AddEdge(from, to)
+}
+
+func (s *SCCGraph) SCC() [][]int {
+	return s.internal.SCC()
+}
+
+type scc_csr[E any] struct {
+	start []int
+	elist []E
+}
+
+func new_scc_csr[E any](n int, edges []Pair[int, E]) *scc_csr[E] {
+	csr := &scc_csr[E]{
+		start: make([]int, n+1),
+		elist: make([]E, len(edges)),
+	}
+	for _, e := range edges {
+		csr.start[e.First+1]++
+	}
+	for i := 1; i <= n; i++ {
+		csr.start[i] += csr.start[i-1]
+	}
+	counter := make([]int, len(csr.start))
+	copy(counter, csr.start)
+	for _, e := range edges {
+		csr.elist[counter[e.First]] = e.Second
+		counter[e.First]++
+	}
+	return csr
+}
+
+type scc_graph struct {
+	n     int
+	edges []Pair[int, scc_edge]
+}
+
+func new_scc_graph(n int) *scc_graph {
+	return &scc_graph{
+		n: n,
+	}
+}
+
+func (s *scc_graph) NumVertices() int {
+	return s.n
+}
+
+func (s *scc_graph) AddEdge(from, to int) {
+	s.edges = append(s.edges, MakePair(from, scc_edge{to}))
+}
+
+func (s *scc_graph) SCCIDs() (int, []int) {
+	g := new_scc_csr(s.n, s.edges)
+	now_ord, group_num := 0, 0
+	visited := make([]int, 0, s.n)
+	low := make([]int, s.n)
+	ord := make([]int, s.n)
+	ids := make([]int, s.n)
+	for i := range ord {
+		ord[i] = -1
+	}
+	var dfs func(v int)
+	dfs = func(v int) {
+		ord[v] = now_ord
+		low[v] = ord[v]
+		now_ord++
+		visited = append(visited, v)
+		for i := g.start[v]; i < g.start[v+1]; i++ {
+			to := g.elist[i].to
+			if ord[to] == -1 {
+				dfs(to)
+				if low[to] < low[v] {
+					low[v] = low[to]
+				}
+			} else {
+				if ord[to] < low[v] {
+					low[v] = ord[to]
+				}
+			}
+		}
+		if low[v] == ord[v] {
+			for {
+				u := visited[len(visited)-1]
+				visited = visited[:len(visited)-1]
+				ord[u] = s.n
+				ids[u] = group_num
+				if u == v {
+					break
+				}
+			}
+			group_num++
+		}
+	}
+	for i := 0; i < s.n; i++ {
+		if ord[i] == -1 {
+			dfs(i)
+		}
+	}
+	for i := range ids {
+		ids[i] = group_num - 1 - ids[i]
+	}
+	return group_num, ids
+}
+
+func (s *scc_graph) SCC() [][]int {
+	group_num, ids := s.SCCIDs()
+	counts := make([]int, group_num)
+	for _, x := range ids {
+		counts[x]++
+	}
+	groups := make([][]int, group_num)
+	for i := 0; i < group_num; i++ {
+		groups[i] = make([]int, 0, counts[i])
+	}
+	for i := 0; i < s.n; i++ {
+		groups[ids[i]] = append(groups[ids[i]], i)
+	}
+	return groups
+}
+
+type scc_edge struct {
+	to int
+}

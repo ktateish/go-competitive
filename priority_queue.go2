@@ -1,0 +1,44 @@
+package main
+
+// vim:set ft=go:
+
+// snip ------------------------------------------------------------------------
+
+type PriorityQueue[T any] struct {
+	a     []T
+	prior func(a, b T) bool
+}
+
+func NewPriorityQueue[T any](prior func(x, y T) bool) *PriorityQueue[T] {
+	pq := &PriorityQueue[T]{
+		a:     make([]T, 0),
+		prior: prior,
+	}
+	return pq
+}
+
+func (pq *PriorityQueue[T]) Len() int {
+	return len(pq.a)
+}
+
+func (pq *PriorityQueue[T]) Empty() bool {
+	return pq.Len() == 0
+}
+
+func (pq *PriorityQueue[T]) swap(i, j int) {
+	pq.a[i], pq.a[j] = pq.a[j], pq.a[i]
+}
+
+func (pq *PriorityQueue[T]) Push(v T) {
+	pq.a = HeapPush(pq.prior, pq.a, v)
+}
+
+func (pq *PriorityQueue[T]) Top() T {
+	return pq.a[0]
+}
+
+func (pq *PriorityQueue[T]) Pop() T {
+	var v T
+	v, pq.a = HeapPop(pq.prior, pq.a)
+	return v
+}

@@ -1,0 +1,172 @@
+package main
+
+// vim:set ft=go:
+
+import (
+	"bytes"
+	"fmt"
+)
+
+// snip ------------------------------------------------------------------------
+
+// Set replesents a ordered set using LLRB
+type Set[K any] struct {
+	t *LLRB[K, bool]
+}
+
+// NewSet returns the pointer a Set object
+func NewSet[K any](less func(a, b K) bool) *Set[K] {
+	return &Set[K]{
+		t: NewLLRB[K, bool](less),
+	}
+}
+
+// Len returns the size of the Set
+func (s *Set[K]) Len() int {
+	return s.t.Len()
+}
+
+// Insert inserts the key
+func (s *Set[K]) Insert(key K) bool {
+	return s.t.Insert(key, true)
+}
+
+// Remove removes the key
+func (s *Set[K]) Remove(key K) bool {
+	return s.t.Remove(key)
+}
+
+// Find returns the SetIterator that matches the key.  The second value is nil if the key is not found.
+func (s *Set[K]) Find(key K) (SetIterator[K], bool) {
+	it, ok := s.t.Find(key)
+	return SetIterator[K](it), ok
+}
+
+// Find returns the value of the key.  The second value is nil if the key is not found.
+func (s *Set[K]) FindValue(key K) bool {
+	_, ok := s.t.Find(key)
+	return ok
+}
+
+func (s *Set[K]) Begin() (SetIterator[K], bool) {
+	it, ok := s.t.Begin()
+	return SetIterator[K](it), ok
+}
+
+func (s *Set[K]) End() SetIterator[K] {
+	it := s.t.End()
+	return SetIterator[K](it)
+}
+
+func (s *Set[K]) RBegin() (SetReverseIterator[K], bool) {
+	it, ok := s.t.RBegin()
+	return SetReverseIterator[K](it), ok
+}
+
+func (s *Set[K]) REnd() SetReverseIterator[K] {
+	it := s.t.REnd()
+	return SetReverseIterator[K](it)
+}
+
+// LowerBound returns the SetIterator that has the lowest key which is greater than or equal to the specified key.
+func (s *Set[K]) LowerBound(key K) (SetIterator[K], bool) {
+	it, ok := s.t.LowerBound(key)
+	return SetIterator[K](it), ok
+}
+
+// UpperBound returns the SetIterator that has a key which is lesser than or equal to the specified key.
+func (s *Set[K]) UpperBound(key K) (SetIterator[K], bool) {
+	it, ok := s.t.UpperBound(key)
+	return SetIterator[K](it), ok
+}
+
+func (s *Set[K]) EqualRange(key K) (SetIterator[K], SetIterator[K]) {
+	lo, hi := s.t.EqualRange(key)
+	return SetIterator[K](lo), SetIterator[K](hi)
+}
+
+// String returns the string representation of the Set
+func (s *Set[K]) String() string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "[")
+	sp := ""
+	for it, ok := s.Begin(); ok; it, ok = it.Next() {
+		fmt.Fprintf(buf, "%s%v", sp, it.Key())
+		sp = " "
+	}
+	fmt.Fprintf(buf, "]")
+	return buf.String()
+}
+
+// Graphviz returns the graph directives of the Set in graphviz format
+func (s *Set[K]) Graphviz() string {
+	return s.t.Graphviz()
+}
+
+//
+// Set Iterator
+//
+
+type SetIterator[K any] LLRBIterator[K, bool]
+
+func (it SetIterator[K]) IsEnd() bool {
+	return LLRBIterator[K, bool](it).IsEnd()
+}
+
+func (it SetIterator[K]) Key() K {
+	return LLRBIterator[K, bool](it).Key()
+}
+
+func (it SetIterator[K]) Value() bool {
+	return LLRBIterator[K, bool](it).Value()
+}
+
+func (it SetIterator[K]) String() string {
+	return LLRBIterator[K, bool](it).String()
+}
+
+func (it SetIterator[K]) Next() (SetIterator[K], bool) {
+	next, ok := LLRBIterator[K, bool](it).Next()
+	return SetIterator[K](next), ok
+}
+
+func (it SetIterator[K]) Prev() (SetIterator[K], bool) {
+	prev, ok := LLRBIterator[K, bool](it).Prev()
+	return SetIterator[K](prev), ok
+}
+
+func (it SetIterator[K]) Less(jt SetIterator[K]) bool {
+	return LLRBIterator[K, bool](it).Less(LLRBIterator[K, bool](jt))
+}
+
+type SetReverseIterator[K any] LLRBReverseIterator[K, bool]
+
+func (it SetReverseIterator[K]) IsEnd() bool {
+	return LLRBReverseIterator[K, bool](it).IsEnd()
+}
+
+func (it SetReverseIterator[K]) Key() K {
+	return LLRBReverseIterator[K, bool](it).Key()
+}
+
+func (it SetReverseIterator[K]) Value() bool {
+	return LLRBReverseIterator[K, bool](it).Value()
+}
+
+func (it SetReverseIterator[K]) String() string {
+	return LLRBReverseIterator[K, bool](it).String()
+}
+
+func (it SetReverseIterator[K]) Next() (SetReverseIterator[K], bool) {
+	next, ok := LLRBReverseIterator[K, bool](it).Next()
+	return SetReverseIterator[K](next), ok
+}
+
+func (it SetReverseIterator[K]) Prev() (SetReverseIterator[K], bool) {
+	prev, ok := LLRBReverseIterator[K, bool](it).Prev()
+	return SetReverseIterator[K](prev), ok
+}
+
+func (it SetReverseIterator[K]) Less(jt SetReverseIterator[K]) bool {
+	return LLRBReverseIterator[K, bool](it).Less(LLRBReverseIterator[K, bool](jt))
+}
