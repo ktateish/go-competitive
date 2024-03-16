@@ -111,7 +111,7 @@ func (sg *LazySegtree[S, F]) AllProd() S {
 }
 
 func (sg *LazySegtree[S, F]) Apply(p int, f F) {
-	assert(p <= p && p < sg.n)
+	assert(0 <= p && p < sg.n)
 	p += sg.size
 	for i := sg.log; i >= 1; i-- {
 		sg.push(p >> i)
